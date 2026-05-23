@@ -5,12 +5,64 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Wuwa Echo Craftsman"
-        Height="450"
-        Width="800">
-    <Grid>
-        <TextBlock HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Text="Wuwa Echo Craftsman"
-                   FontSize="24" />
-    </Grid>
+        Height="640"
+        Width="980"
+        Closing="Window_Closing"
+        SourceInitialized="Window_SourceInitialized">
+    <DockPanel Margin="12">
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusTextBlock" Text="준비됨" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                <TextBlock Text="설정" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+                <CheckBox x:Name="DryRunCheckBox"
+                          Content="Dry-run 모드"
+                          IsChecked="True"
+                          Margin="0,0,0,8" />
+
+                <TextBlock Text="목표 레벨" />
+                <TextBox x:Name="TargetLevelTextBox" Text="5" Margin="0,2,0,8" />
+
+                <TextBlock Text="반복 횟수" />
+                <TextBox x:Name="RemainingCountTextBox" Text="1" Margin="0,2,0,8" />
+
+                <TextBlock Text="필요 유효 부옵션 개수" />
+                <TextBox x:Name="RequiredCountTextBox" Text="2" Margin="0,2,0,12" />
+
+                <Button Content="설정 저장" Click="SaveConfig_Click" Margin="0,0,0,8" />
+                <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Margin="0,0,0,8" />
+                <Button Content="PoC: OCR 테스트" Click="OcrPoc_Click" Margin="0,0,0,8" />
+                <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Margin="0,0,0,8" />
+                <Button Content="초기 설정 시작" Click="Calibration_Click" Margin="0,8,0,8" />
+                <Button Content="자동화 시작 (F5)" Click="StartAutomation_Click" Margin="0,8,0,8" />
+                <Button Content="자동화 정지 (F6)" Click="StopAutomation_Click" Margin="0,0,0,8" />
+                <Button Content="히스토리 열기" Click="History_Click" Margin="0,8,0,8" />
+            </StackPanel>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="로그" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBox x:Name="LogTextBox"
+                         Grid.Row="1"
+                         AcceptsReturn="True"
+                         IsReadOnly="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" />
+            </Grid>
+        </Grid>
+    </DockPanel>
 </Window>
