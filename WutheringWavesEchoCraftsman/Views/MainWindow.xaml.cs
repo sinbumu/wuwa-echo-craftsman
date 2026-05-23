@@ -152,37 +152,107 @@ public partial class MainWindow : Window
     private async Task RunCalibrationAsync()
     {
         SaveConfigFromUi();
-        AppendLog("3초 후 캘리브레이션 캡처를 시작합니다.");
-        await Task.Delay(3000);
-
-        using var screenshot = _screenCapturer.CaptureVirtualScreen();
         var steps = CalibrationStep.CreateDefaultSteps();
 
-        foreach (var step in steps)
+        foreach (var screenGroup in steps.GroupBy(step => step.Screen))
         {
-            var result = await CalibrationOverlay.CaptureAsync(screenshot, step);
-            if (result is null)
+            if (!await PrepareCalibrationScreenAsync(screenGroup.Key))
             {
                 AppendLog("캘리브레이션 취소");
                 return;
             }
 
-            if (step.Kind == CalibrationStepKind.Region)
-            {
-                _config.Regions[step.Key] = result.Region;
-            }
-            else
-            {
-                using var assetBitmap = screenshot.Clone(result.Region.ToRectangle(), screenshot.PixelFormat);
-                var relativePath = _calibrationManager.SaveAsset(assetBitmap, step.Key);
-                _config.Assets[step.Key] = relativePath;
-            }
+            using var screenshot = _screenCapturer.CaptureVirtualScreen();
+            AppendLog($"{GetCalibrationScreenTitle(screenGroup.Key)} 캡처 완료");
 
-            AppendLog($"캘리브레이션 저장: {step.Key}");
+            foreach (var step in screenGroup)
+            {
+                var result = await CalibrationOverlay.CaptureAsync(screenshot, step);
+                if (result is null)
+                {
+                    AppendLog("캘리브레이션 취소");
+                    return;
+                }
+
+                if (step.Kind == CalibrationStepKind.Region)
+                {
+                    _config.Regions[step.Key] = result.Region;
+                }
+                else
+                {
+                    using var assetBitmap = screenshot.Clone(result.Region.ToRectangle(), screenshot.PixelFormat);
+                    var relativePath = _calibrationManager.SaveAsset(assetBitmap, step.Key);
+                    _config.Assets[step.Key] = relativePath;
+                }
+
+                AppendLog($"캘리브레이션 저장: {step.ScreenTitle} / {step.Key}");
+            }
         }
 
         _calibrationManager.Save(_config);
         AppendLog("캘리브레이션 완료");
+    }
+
+    private async Task<bool> PrepareCalibrationScreenAsync(CalibrationScreen screen)
+    {
+        var instruction = GetCalibrationPreparationMessage(screen);
+        AppendLog(instruction.Replace(Environment.NewLine, " "));
+
+        Activate();
+        var result = System.Windows.MessageBox.Show(
+            this,
+            instruction + Environment.NewLine + Environment.NewLine + "해당 화면을 준비한 뒤 [확인]을 누르세요. 확인 후 3초 뒤 캡처합니다.",
+            "캘리브레이션 화면 준비",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Information);
+
+        if (result != MessageBoxResult.OK)
+        {
+            return false;
+        }
+
+        Hide();
+        AppendLog($"{GetCalibrationScreenTitle(screen)} 준비: 3초 후 캡처");
+        await Task.Delay(3000);
+        Show();
+        Activate();
+        return true;
+    }
+
+    private static string GetCalibrationScreenTitle(CalibrationScreen screen)
+    {
+        return screen switch
+        {
+            CalibrationScreen.EchoList => "에코 목록 화면",
+            CalibrationScreen.Enhance => "에코 강화 화면",
+            CalibrationScreen.Optimize => "에코 옵티마이즈 화면",
+            _ => "캘리브레이션 화면",
+        };
+    }
+
+    private static string GetCalibrationPreparationMessage(CalibrationScreen screen)
+    {
+        return screen switch
+        {
+            CalibrationScreen.EchoList =>
+                "1/3 에코 목록 화면을 준비하세요." + Environment.NewLine
+                + "- 캐릭터 > 에코 탭의 에코 목록 화면으로 이동하세요." + Environment.NewLine
+                + "- 목표 세트/코스트 필터와 레벨 오름차순 정렬을 적용하세요." + Environment.NewLine
+                + "- +0 에코가 보이고, 에코 선택 시 육성 버튼이 보이는 상태가 좋습니다.",
+
+            CalibrationScreen.Enhance =>
+                "2/3 에코 강화 화면을 준비하세요." + Environment.NewLine
+                + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
+                + "- 현재 레벨 텍스트가 보이게 하세요." + Environment.NewLine
+                + "- 재료 슬롯 + 버튼, 강화 버튼, 재료 리스트/팝업에서 폐기 에코 또는 음파통 아이콘을 볼 수 있는 상태가 좋습니다.",
+
+            CalibrationScreen.Optimize =>
+                "3/3 에코 옵티마이즈 화면을 준비하세요." + Environment.NewLine
+                + "- 강화 화면에서 옵티마이즈/튜닝 탭으로 이동하세요." + Environment.NewLine
+                + "- 부옵션 텍스트 영역과 옵티마이즈 실행/해금 버튼이 보이는 상태로 준비하세요.",
+
+            _ => "캘리브레이션할 화면을 준비하세요.",
+        };
     }
 
     private async Task StartAutomationAsync()

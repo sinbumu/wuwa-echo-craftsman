@@ -28,7 +28,10 @@
             <TextBlock x:Name="InstructionTextBlock"
                        Foreground="White"
                        FontSize="22"
-                       FontWeight="SemiBold" />
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="1100" />
         </Border>
     </Grid>
 </Window>
