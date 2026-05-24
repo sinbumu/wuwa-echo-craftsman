@@ -95,7 +95,7 @@ public sealed class EchoAutomator
             if (expectedLevel >= _config.TargetLevel)
             {
                 await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
-                await Task.Delay(1200, cancellationToken);
+                await CloseCompletionOverlayAsync("roi_enhance_complete_close", "ENHANCE", cancellationToken);
                 return;
             }
 
@@ -149,6 +149,7 @@ public sealed class EchoAutomator
         {
             cancellationToken.ThrowIfCancellationRequested();
             await ClickRegionAsync("roi_optimize_confirm", cancellationToken);
+            await CloseCompletionOverlayAsync("roi_optimize_complete_close", "OPTIMIZE", cancellationToken);
 
             await Task.Delay(800, cancellationToken);
             using var after = _screenCapturer.CaptureRegion(substatRegion);
@@ -195,6 +196,20 @@ public sealed class EchoAutomator
         ClickRegion(region);
         _log($"{regionKey}: 중앙 클릭 ({region.X + region.Width / 2}, {region.Y + region.Height / 2})");
         await Task.Delay(300, cancellationToken);
+    }
+
+    private async Task CloseCompletionOverlayAsync(string regionKey, string phase, CancellationToken cancellationToken)
+    {
+        await Task.Delay(1200, cancellationToken);
+        if (!_config.Regions.TryGetValue(regionKey, out var region) || region.IsEmpty)
+        {
+            _log($"{phase}: 완료 오버레이 닫기 영역이 설정되지 않아 닫기 클릭을 건너뜁니다.");
+            return;
+        }
+
+        ClickRegion(region);
+        _log($"{phase}: 완료 오버레이 닫기 클릭 ({region.X + region.Width / 2}, {region.Y + region.Height / 2})");
+        await Task.Delay(500, cancellationToken);
     }
 
     private void ClickRegion(RegionRect region)

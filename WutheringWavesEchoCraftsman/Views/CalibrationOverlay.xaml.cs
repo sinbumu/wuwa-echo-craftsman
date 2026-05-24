@@ -138,6 +138,7 @@ public sealed record CalibrationStep(
             new("roi_expected_level", "강화 후 예상 레벨 텍스트", CalibrationStepKind.Region, CalibrationScreen.Enhance, "재료 투입 후 도달할 예상 레벨(+5, +10 등) 텍스트 영역을 드래그하세요."),
             new("roi_slot_plus", "재료 투입 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 재료 슬롯 + 버튼 또는 재료 투입 영역을 드래그하세요. 자동화는 영역 중앙을 클릭해 재료 리스트를 엽니다."),
             new("roi_enhance_confirm", "강화 확인 버튼 클릭 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 실행/확인 버튼 영역을 드래그하세요. 자동화는 영역 중앙을 클릭합니다."),
+            new("roi_enhance_complete_close", "강화 완료 오버레이 닫기 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 완료 후 뜨는 결과 오버레이에서, 아무 곳이나 클릭해 닫을 수 있는 안전한 영역을 드래그하세요."),
             new("roi_optimize_tab", "튜닝 탭 클릭 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 화면에서 옵티마이즈/튜닝 화면으로 이동하는 탭 버튼 영역을 드래그하세요."),
 
             new("roi_material", "재료 인벤토리", CalibrationStepKind.Region, CalibrationScreen.MaterialList, "재료 슬롯 + 버튼을 눌러 열린 우측 재료 리스트 영역 전체를 드래그하세요."),
@@ -149,6 +150,7 @@ public sealed record CalibrationStep(
 
             new("roi_substat", "부옵션 텍스트", CalibrationStepKind.Region, CalibrationScreen.Optimize, "옵티마이즈 결과로 표시되는 부옵션 텍스트 목록 영역을 드래그하세요."),
             new("roi_optimize_confirm", "옵티마이즈 실행 버튼 클릭 영역", CalibrationStepKind.Region, CalibrationScreen.Optimize, "옵티마이즈 실행/해금 버튼 영역을 드래그하세요. 자동화는 영역 중앙을 클릭합니다."),
+            new("roi_optimize_complete_close", "옵티마이즈 완료 오버레이 닫기 영역", CalibrationStepKind.Region, CalibrationScreen.Optimize, "옵티마이즈 완료 후 뜨는 결과 오버레이에서, 아무 곳이나 클릭해 닫을 수 있는 안전한 영역을 드래그하세요."),
         ];
     }
 
@@ -201,7 +203,7 @@ public static class CalibrationGuide
                 + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
                 + "- 재료 투입 후 변하는 예상 레벨 텍스트 영역이 보이게 하세요." + Environment.NewLine
                 + "- 아직 재료 슬롯 + 버튼은 누르지 마세요." + Environment.NewLine
-                + "- 현재 화면에서 재료 투입 영역, 강화 버튼, 옵티마이즈/튜닝 탭 버튼이 보이는 상태로 준비하세요.",
+                + "- 현재 화면에서 재료 투입 영역, 강화 버튼, 강화 완료 오버레이 닫기용 안전 클릭 지점, 옵티마이즈/튜닝 탭 버튼이 보이는 상태로 준비하세요.",
 
             CalibrationScreen.MaterialList =>
                 "3/4 에코 강화 재료 리스트 화면을 준비하세요." + Environment.NewLine
@@ -212,7 +214,7 @@ public static class CalibrationGuide
             CalibrationScreen.Optimize =>
                 "4/4 에코 옵티마이즈 화면을 준비하세요." + Environment.NewLine
                 + "- 강화 화면에서 옵티마이즈/튜닝 탭으로 이동하세요." + Environment.NewLine
-                + "- 부옵션 텍스트 영역과 옵티마이즈 실행/해금 버튼이 보이는 상태로 준비하세요.",
+                + "- 부옵션 텍스트 영역, 옵티마이즈 실행/해금 버튼, 옵티마이즈 완료 오버레이 닫기용 안전 클릭 지점이 보이는 상태로 준비하세요.",
 
             _ => "캘리브레이션할 화면을 준비하세요.",
         };

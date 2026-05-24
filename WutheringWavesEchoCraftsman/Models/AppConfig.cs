@@ -46,6 +46,7 @@ public static class CalibrationTargets
         "roi_expected_level",
         "roi_slot_plus",
         "roi_enhance_confirm",
+        "roi_enhance_complete_close",
         "roi_optimize_tab",
         "roi_material",
         "roi_exp_material_1",
@@ -54,6 +55,7 @@ public static class CalibrationTargets
         "roi_exp_material_4",
         "roi_substat",
         "roi_optimize_confirm",
+        "roi_optimize_complete_close",
     ];
 
     public static readonly string[] RequiredAssetKeys =
