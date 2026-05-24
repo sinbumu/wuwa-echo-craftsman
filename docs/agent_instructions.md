@@ -52,11 +52,14 @@ WutheringWavesEchoCraftsman.sln
 - **하드웨어 Fail-Safe:** 사용자가 마우스를 화면 모서리(0, 0)로 이동시키면 스레드 즉시 정지.
 
 ### 5.2. 오버레이 캘리브레이션 UX
-1. 3초 딜레이 후 현재 화면을 캡처하여 WPF 무테두리 전체화면 윈도우 배경으로 띄움.
-2. 드래그(RubberBand)를 통해 영역 지정.
-3. **수집 타겟 (총 12종):**
-   - **[ROI 4종]:** `roi_list`, `roi_level`, `roi_substat`, `roi_material`
-   - **[Asset 8종]:** `template_plus_zero.png`, `icon_discard.png`, `icon_exp.png`, `btn_enhance_tab.png`, `btn_slot_plus.png`, `btn_enhance_confirm.png`, `btn_optimize_tab.png`, `btn_optimize_confirm.png`
+1. 캘리브레이션은 단일 화면 캡처가 아니라 **4단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
+2. 각 단계 시작 전 WPF 안내 팝업으로 사용자가 어떤 인게임 화면을 준비해야 하는지 구체적으로 설명한다.
+3. 드래그(RubberBand)를 통해 영역 지정.
+4. **수집 타겟 (총 12종):**
+   - **[1/4 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `btn_enhance_tab.png`
+   - **[2/4 에코 강화 기본 화면]:** `roi_level`, `btn_slot_plus.png`, `btn_enhance_confirm.png`, `btn_optimize_tab.png`
+   - **[3/4 에코 강화 재료 리스트 화면]:** 강화 화면에서 재료 슬롯/투입 영역을 클릭해 우측 재료 목록을 연 뒤 `roi_material`, `icon_discard.png`, `icon_exp.png`
+   - **[4/4 에코 옵티마이즈 화면]:** `roi_substat`, `btn_optimize_confirm.png`
 
 ### 5.3. 부옵션 필터링 및 OCR 정규화
 - **정규화:** WinRT OCR 결과에서 공백/특수문자 제거 후 13종 표준 명칭으로 치환.

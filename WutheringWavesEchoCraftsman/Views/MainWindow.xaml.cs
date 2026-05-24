@@ -225,6 +225,7 @@ public partial class MainWindow : Window
         {
             CalibrationScreen.EchoList => "에코 목록 화면",
             CalibrationScreen.Enhance => "에코 강화 화면",
+            CalibrationScreen.MaterialList => "에코 강화 재료 리스트 화면",
             CalibrationScreen.Optimize => "에코 옵티마이즈 화면",
             _ => "캘리브레이션 화면",
         };
@@ -235,19 +236,26 @@ public partial class MainWindow : Window
         return screen switch
         {
             CalibrationScreen.EchoList =>
-                "1/3 에코 목록 화면을 준비하세요." + Environment.NewLine
+                "1/4 에코 목록 화면을 준비하세요." + Environment.NewLine
                 + "- 캐릭터 > 에코 탭의 에코 목록 화면으로 이동하세요." + Environment.NewLine
                 + "- 목표 세트/코스트 필터와 레벨 오름차순 정렬을 적용하세요." + Environment.NewLine
                 + "- +0 에코가 보이고, 에코 선택 시 육성 버튼이 보이는 상태가 좋습니다.",
 
             CalibrationScreen.Enhance =>
-                "2/3 에코 강화 화면을 준비하세요." + Environment.NewLine
+                "2/4 에코 강화 기본 화면을 준비하세요." + Environment.NewLine
                 + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
                 + "- 현재 레벨 텍스트가 보이게 하세요." + Environment.NewLine
-                + "- 재료 슬롯 + 버튼, 강화 버튼, 재료 리스트/팝업에서 폐기 에코 또는 음파통 아이콘을 볼 수 있는 상태가 좋습니다.",
+                + "- 아직 재료 슬롯 + 버튼은 누르지 마세요." + Environment.NewLine
+                + "- 현재 화면에서 재료 슬롯 + 버튼, 강화 버튼, 옵티마이즈/튜닝 탭 버튼이 보이는 상태로 준비하세요.",
+
+            CalibrationScreen.MaterialList =>
+                "3/4 에코 강화 재료 리스트 화면을 준비하세요." + Environment.NewLine
+                + "- 에코 강화 화면에서 재료 슬롯 + 버튼 또는 재료 투입 영역을 클릭하세요." + Environment.NewLine
+                + "- 우측에 강화 재료/강화된 에코 목록이 열린 상태로 준비하세요." + Environment.NewLine
+                + "- 폐기 에코 아이콘 또는 음파통 아이콘이 실제로 보이게 스크롤/필터를 맞춰두세요.",
 
             CalibrationScreen.Optimize =>
-                "3/3 에코 옵티마이즈 화면을 준비하세요." + Environment.NewLine
+                "4/4 에코 옵티마이즈 화면을 준비하세요." + Environment.NewLine
                 + "- 강화 화면에서 옵티마이즈/튜닝 탭으로 이동하세요." + Environment.NewLine
                 + "- 부옵션 텍스트 영역과 옵티마이즈 실행/해금 버튼이 보이는 상태로 준비하세요.",
 

@@ -136,12 +136,13 @@ public sealed record CalibrationStep(
             new("btn_enhance_tab.png", "육성 버튼", CalibrationStepKind.Asset, CalibrationScreen.EchoList, "에코를 선택했을 때 보이는 육성 버튼 이미지만 드래그하세요."),
 
             new("roi_level", "현재 레벨 텍스트", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 화면의 현재 레벨(+0, +5 등) 텍스트 영역을 드래그하세요."),
-            new("roi_material", "재료 인벤토리", CalibrationStepKind.Region, CalibrationScreen.Enhance, "재료 투입 팝업 또는 우측 재료 리스트가 보이는 영역 전체를 드래그하세요."),
-            new("icon_discard.png", "폐기 휴지통 아이콘", CalibrationStepKind.Asset, CalibrationScreen.Enhance, "재료 리스트의 폐기 에코/휴지통 아이콘만 작게 드래그하세요."),
-            new("icon_exp.png", "음파통 아이콘", CalibrationStepKind.Asset, CalibrationScreen.Enhance, "재료 리스트의 음파통 아이콘만 작게 드래그하세요."),
             new("btn_slot_plus.png", "재료 슬롯 + 버튼", CalibrationStepKind.Asset, CalibrationScreen.Enhance, "강화 재료 슬롯의 + 버튼 이미지만 드래그하세요."),
             new("btn_enhance_confirm.png", "강화 확인 버튼", CalibrationStepKind.Asset, CalibrationScreen.Enhance, "강화 실행/확인 버튼 이미지만 드래그하세요."),
             new("btn_optimize_tab.png", "튜닝 탭", CalibrationStepKind.Asset, CalibrationScreen.Enhance, "강화 화면에서 옵티마이즈/튜닝 화면으로 이동하는 탭 버튼을 드래그하세요."),
+
+            new("roi_material", "재료 인벤토리", CalibrationStepKind.Region, CalibrationScreen.MaterialList, "재료 슬롯 + 버튼을 눌러 열린 우측 재료 리스트 영역 전체를 드래그하세요."),
+            new("icon_discard.png", "폐기 휴지통 아이콘", CalibrationStepKind.Asset, CalibrationScreen.MaterialList, "우측 재료 리스트에서 폐기 에코/휴지통 아이콘만 작게 드래그하세요."),
+            new("icon_exp.png", "음파통 아이콘", CalibrationStepKind.Asset, CalibrationScreen.MaterialList, "우측 재료 리스트에서 음파통 아이콘만 작게 드래그하세요."),
 
             new("roi_substat", "부옵션 텍스트", CalibrationStepKind.Region, CalibrationScreen.Optimize, "옵티마이즈 결과로 표시되는 부옵션 텍스트 목록 영역을 드래그하세요."),
             new("btn_optimize_confirm.png", "옵티마이즈 실행 버튼", CalibrationStepKind.Asset, CalibrationScreen.Optimize, "옵티마이즈 실행/해금 버튼 이미지만 드래그하세요."),
@@ -152,6 +153,7 @@ public sealed record CalibrationStep(
     {
         CalibrationScreen.EchoList => "에코 목록 화면",
         CalibrationScreen.Enhance => "에코 강화 화면",
+        CalibrationScreen.MaterialList => "에코 강화 재료 리스트 화면",
         CalibrationScreen.Optimize => "에코 옵티마이즈 화면",
         _ => "캘리브레이션",
     };
@@ -167,5 +169,6 @@ public enum CalibrationScreen
 {
     EchoList,
     Enhance,
+    MaterialList,
     Optimize,
 }
