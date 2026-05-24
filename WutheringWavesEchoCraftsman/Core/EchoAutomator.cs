@@ -78,7 +78,7 @@ public sealed class EchoAutomator
 
         _inputController.Click(listRegion.X + match.CenterX, listRegion.Y + match.CenterY);
         await Task.Delay(300, cancellationToken);
-        await ClickAssetOnScreenAsync("btn_enhance_tab.png", cancellationToken);
+        await ClickRegionAsync("roi_enhance_tab", cancellationToken);
 
         return true;
     }
@@ -90,28 +90,38 @@ public sealed class EchoAutomator
             cancellationToken.ThrowIfCancellationRequested();
             EnsureFailSafeNotTriggered();
 
-            var level = await ReadLevelAsync(cancellationToken);
-            _log($"ENHANCE: 현재 레벨 판독={level}");
-            if (level >= _config.TargetLevel)
+            var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+            _log($"ENHANCE: 강화 후 예상 레벨 판독={expectedLevel}");
+            if (expectedLevel >= _config.TargetLevel)
             {
+                await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
+                await Task.Delay(1200, cancellationToken);
                 return;
             }
 
-            await ClickAssetOnScreenAsync("btn_slot_plus.png", cancellationToken);
+            await ClickRegionAsync("roi_slot_plus", cancellationToken);
 
             var materialRegion = _config.Regions["roi_material"];
             using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
             var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
-            var exp = discard.Success ? discard : FindAsset(materialCapture, "icon_exp.png", 0.80);
-            if (!exp.Success)
+
+            if (discard.Success)
             {
-                throw new InvalidOperationException("재료 소진: 폐기 에코와 음파통을 찾지 못했습니다.");
+                _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+                await Task.Delay(400, cancellationToken);
+                continue;
             }
 
-            _inputController.Click(materialRegion.X + exp.CenterX, materialRegion.Y + exp.CenterY);
-            await Task.Delay(200, cancellationToken);
-            await ClickAssetOnScreenAsync("btn_enhance_confirm.png", cancellationToken);
-            await Task.Delay(1200, cancellationToken);
+            var expRegions = GetConfiguredExpMaterialRegions();
+            if (expRegions.Count == 0)
+            {
+                throw new InvalidOperationException("재료 소진: 폐기 에코를 찾지 못했고 음파통 영역도 설정되지 않았습니다.");
+            }
+
+            var expRegion = expRegions[attempt % expRegions.Count];
+            ClickRegion(expRegion);
+            _log($"ENHANCE: 음파통 영역 클릭 ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
+            await Task.Delay(400, cancellationToken);
         }
 
         throw new InvalidOperationException("강화 반복 제한을 초과했습니다.");
@@ -119,7 +129,7 @@ public sealed class EchoAutomator
 
     private async Task OptimizeAsync(CancellationToken cancellationToken)
     {
-        await ClickAssetOnScreenAsync("btn_optimize_tab.png", cancellationToken);
+        await ClickRegionAsync("roi_optimize_tab", cancellationToken);
         await Task.Delay(500, cancellationToken);
 
         if (!_config.Regions.TryGetValue("roi_substat", out var substatRegion) || substatRegion.IsEmpty)
@@ -138,12 +148,7 @@ public sealed class EchoAutomator
         for (var attempt = 0; attempt < 5; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var clicked = await ClickAssetOnScreenAsync("btn_optimize_confirm.png", cancellationToken, throwOnFailure: false);
-            if (!clicked)
-            {
-                _log("OPTIMIZE: 실행 버튼 매칭 실패를 완료 조건으로 간주합니다.");
-                return;
-            }
+            await ClickRegionAsync("roi_optimize_confirm", cancellationToken);
 
             await Task.Delay(800, cancellationToken);
             using var after = _screenCapturer.CaptureRegion(substatRegion);
@@ -175,13 +180,42 @@ public sealed class EchoAutomator
         await _databaseService.InsertResultAsync(text, decision, validCount, cancellationToken);
     }
 
-    private async Task<int> ReadLevelAsync(CancellationToken cancellationToken)
+    private async Task<int> ReadExpectedLevelAsync(CancellationToken cancellationToken)
     {
-        var levelRegion = _config.Regions["roi_level"];
+        var levelRegion = _config.Regions["roi_expected_level"];
         using var levelCapture = _screenCapturer.CaptureRegion(levelRegion);
         var text = await _visionProcessor.RecognizeTextAsync(levelCapture, cancellationToken);
         var match = Regex.Match(text, @"\+?\s*(\d+)");
         return match.Success ? int.Parse(match.Groups[1].Value) : 0;
+    }
+
+    private async Task ClickRegionAsync(string regionKey, CancellationToken cancellationToken)
+    {
+        var region = _config.Regions[regionKey];
+        ClickRegion(region);
+        _log($"{regionKey}: 중앙 클릭 ({region.X + region.Width / 2}, {region.Y + region.Height / 2})");
+        await Task.Delay(300, cancellationToken);
+    }
+
+    private void ClickRegion(RegionRect region)
+    {
+        if (region.IsEmpty)
+        {
+            throw new InvalidOperationException("클릭 영역이 설정되지 않았습니다.");
+        }
+
+        _inputController.Click(region.X + region.Width / 2, region.Y + region.Height / 2);
+    }
+
+    private IReadOnlyList<RegionRect> GetConfiguredExpMaterialRegions()
+    {
+        return
+        [
+            .. Enumerable.Range(1, 4)
+                .Select(index => $"roi_exp_material_{index}")
+                .Where(key => _config.Regions.TryGetValue(key, out var region) && !region.IsEmpty)
+                .Select(key => _config.Regions[key]),
+        ];
     }
 
     private async Task<bool> ClickAssetOnScreenAsync(string assetName, CancellationToken cancellationToken, bool throwOnFailure = true)

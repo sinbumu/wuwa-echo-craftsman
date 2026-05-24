@@ -105,7 +105,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            using var capture = _config.Regions.TryGetValue("roi_level", out var region) && !region.IsEmpty
+            using var capture = _config.Regions.TryGetValue("roi_expected_level", out var region) && !region.IsEmpty
                 ? _screenCapturer.CaptureRegion(region)
                 : _screenCapturer.CaptureVirtualScreen();
 
@@ -129,7 +129,13 @@ public partial class MainWindow : Window
 
     private async void Calibration_Click(object sender, RoutedEventArgs e)
     {
-        await RunCalibrationAsync();
+        SaveConfigFromUi();
+        var window = new CalibrationWindow(_config, _calibrationManager, _screenCapturer, AppendLog)
+        {
+            Owner = this,
+        };
+        window.Show();
+        await Task.CompletedTask;
     }
 
     private async void StartAutomation_Click(object sender, RoutedEventArgs e)

@@ -34,13 +34,15 @@ public sealed class CalibrationManager
 
         if (!File.Exists(ConfigPath))
         {
-            var config = new AppConfig();
-            Save(config);
-            return config;
+            var newConfig = new AppConfig();
+            Save(newConfig);
+            return newConfig;
         }
 
         var json = File.ReadAllText(ConfigPath);
-        return JsonSerializer.Deserialize<AppConfig>(json, _jsonOptions) ?? new AppConfig();
+        var loadedConfig = JsonSerializer.Deserialize<AppConfig>(json, _jsonOptions) ?? new AppConfig();
+        EnsureDefaults(loadedConfig);
+        return loadedConfig;
     }
 
     public void Save(AppConfig config)
@@ -69,5 +71,18 @@ public sealed class CalibrationManager
     {
         Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(AssetsDirectory);
+    }
+
+    private static void EnsureDefaults(AppConfig config)
+    {
+        foreach (var key in CalibrationTargets.RequiredRegionKeys)
+        {
+            config.Regions.TryAdd(key, RegionRect.Empty);
+        }
+
+        foreach (var key in CalibrationTargets.RequiredAssetKeys)
+        {
+            config.Assets.TryAdd(key, Path.Combine("data", "assets", key));
+        }
     }
 }

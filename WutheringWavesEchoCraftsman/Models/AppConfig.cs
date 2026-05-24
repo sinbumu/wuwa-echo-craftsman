@@ -42,20 +42,23 @@ public static class CalibrationTargets
     public static readonly string[] RequiredRegionKeys =
     [
         "roi_list",
-        "roi_level",
-        "roi_substat",
+        "roi_enhance_tab",
+        "roi_expected_level",
+        "roi_slot_plus",
+        "roi_enhance_confirm",
+        "roi_optimize_tab",
         "roi_material",
+        "roi_exp_material_1",
+        "roi_exp_material_2",
+        "roi_exp_material_3",
+        "roi_exp_material_4",
+        "roi_substat",
+        "roi_optimize_confirm",
     ];
 
     public static readonly string[] RequiredAssetKeys =
     [
         "template_plus_zero.png",
         "icon_discard.png",
-        "icon_exp.png",
-        "btn_enhance_tab.png",
-        "btn_slot_plus.png",
-        "btn_enhance_confirm.png",
-        "btn_optimize_tab.png",
-        "btn_optimize_confirm.png",
     ];
 }

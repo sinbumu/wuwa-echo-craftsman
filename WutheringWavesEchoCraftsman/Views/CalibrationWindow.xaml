@@ -1,0 +1,52 @@
+<Window x:Class="WutheringWavesEchoCraftsman.Views.CalibrationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="초기 설정 관리"
+        Height="620"
+        Width="1040">
+    <DockPanel Margin="12">
+        <TextBlock DockPanel.Dock="Top"
+                   Text="각 항목의 저장 상태를 확인하고, 잘못 지정한 항목만 개별로 다시 캡처할 수 있습니다."
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10" />
+
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button Content="새로고침"
+                    MinWidth="90"
+                    Margin="0,0,8,0"
+                    Click="Refresh_Click" />
+            <Button Content="선택 항목 다시 캡처"
+                    MinWidth="150"
+                    Margin="0,0,8,0"
+                    Click="CaptureSelected_Click" />
+            <Button Content="선택 화면 단계 전체 캡처"
+                    MinWidth="170"
+                    Margin="0,0,8,0"
+                    Click="CaptureSelectedScreen_Click" />
+            <Button Content="전체 순차 캘리브레이션"
+                    MinWidth="160"
+                    Margin="0,0,8,0"
+                    Click="CaptureAll_Click" />
+            <Button Content="닫기"
+                    MinWidth="80"
+                    Click="Close_Click" />
+        </StackPanel>
+
+        <DataGrid x:Name="CalibrationDataGrid"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="화면 단계" Binding="{Binding ScreenTitle}" Width="180" />
+                <DataGridTextColumn Header="항목" Binding="{Binding Title}" Width="170" />
+                <DataGridTextColumn Header="종류" Binding="{Binding Kind}" Width="80" />
+                <DataGridTextColumn Header="키" Binding="{Binding Key}" Width="170" />
+                <DataGridTextColumn Header="상태" Binding="{Binding Status}" Width="100" />
+                <DataGridTextColumn Header="현재 값 / 파일" Binding="{Binding Value}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

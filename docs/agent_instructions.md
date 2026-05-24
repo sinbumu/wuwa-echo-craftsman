@@ -33,6 +33,7 @@ WutheringWavesEchoCraftsman.sln
     ├── Views/
     │   ├── MainWindow.xaml / .cs          
     │   ├── HistoryWindow.xaml / .cs       
+    │   ├── CalibrationWindow.xaml / .cs    # 캘리브레이션 상태 확인 및 개별 재설정 창
     │   └── CalibrationOverlay.xaml / .cs  
     └── Properties/
         └── PublishProfiles/               
@@ -52,14 +53,17 @@ WutheringWavesEchoCraftsman.sln
 - **하드웨어 Fail-Safe:** 사용자가 마우스를 화면 모서리(0, 0)로 이동시키면 스레드 즉시 정지.
 
 ### 5.2. 오버레이 캘리브레이션 UX
-1. 캘리브레이션은 단일 화면 캡처가 아니라 **4단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
-2. 각 단계 시작 전 WPF 안내 팝업으로 사용자가 어떤 인게임 화면을 준비해야 하는지 구체적으로 설명한다.
-3. 드래그(RubberBand)를 통해 영역 지정.
-4. **수집 타겟 (총 12종):**
-   - **[1/4 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `btn_enhance_tab.png`
-   - **[2/4 에코 강화 기본 화면]:** `roi_level`, `btn_slot_plus.png`, `btn_enhance_confirm.png`, `btn_optimize_tab.png`
-   - **[3/4 에코 강화 재료 리스트 화면]:** 강화 화면에서 재료 슬롯/투입 영역을 클릭해 우측 재료 목록을 연 뒤 `roi_material`, `icon_discard.png`, `icon_exp.png`
-   - **[4/4 에코 옵티마이즈 화면]:** `roi_substat`, `btn_optimize_confirm.png`
+1. 메인 화면의 **[초기 설정 시작]** 버튼은 일회성 마법사가 아니라 **초기 설정 관리 창**을 연다.
+2. 초기 설정 관리 창은 15개 캘리브레이션 항목의 현재 저장 상태(미설정/저장됨), ROI 좌표, asset 파일 경로를 표로 보여준다.
+3. 사용자는 전체를 다시 할 필요 없이 **선택 항목만 다시 캡처**, **선택한 화면 단계 전체 다시 캡처**, **전체 순차 캘리브레이션** 중 하나를 실행할 수 있다.
+4. 캘리브레이션 캡처는 **4단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
+5. 각 단계 시작 전 WPF 안내 팝업으로 사용자가 어떤 인게임 화면을 준비해야 하는지 구체적으로 설명한다.
+6. 드래그(RubberBand)를 통해 영역 지정.
+7. **수집 타겟 (총 15종):**
+   - **[1/4 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `roi_enhance_tab`
+   - **[2/4 에코 강화 기본 화면]:** `roi_expected_level`(강화 후 예상 레벨 OCR), `roi_slot_plus`, `roi_enhance_confirm`, `roi_optimize_tab`
+   - **[3/4 에코 강화 재료 리스트 화면]:** 강화 화면에서 재료 슬롯/투입 영역을 클릭해 우측 재료 목록을 연 뒤 `roi_material`, `icon_discard.png`, `roi_exp_material_1`~`roi_exp_material_4`
+   - **[4/4 에코 옵티마이즈 화면]:** `roi_substat`, `roi_optimize_confirm`
 
 ### 5.3. 부옵션 필터링 및 OCR 정규화
 - **정규화:** WinRT OCR 결과에서 공백/특수문자 제거 후 13종 표준 명칭으로 치환.
@@ -67,9 +71,9 @@ WutheringWavesEchoCraftsman.sln
 
 ### 5.4. 자동화 상태 머신 (Task-Driven State Machine)
 - **상태 머신은 각 루프 시작 시 GUI에서 설정한 `remainingCount`를 확인하고, 0 이하이면 정상 종료한다.**
-- **SEARCH:** `roi_list`에서 `template_plus_zero.png` 매칭 -> 매칭 좌표 클릭 -> `btn_enhance_tab.png` 클릭. (매칭 실패 시 **정상 종료**)
-- **ENHANCE:** `roi_level` OCR 판독 -> 목표 레벨 도달 시 OPTIMIZE 이동. 미달 시 `btn_slot_plus` 클릭 -> `icon_discard` 탐색/클릭, 없으면 `icon_exp` 클릭 -> `btn_enhance_confirm` 클릭 -> 딜레이 후 루프. (재료 소진 시 **비상 종료**)
-- **OPTIMIZE:** `btn_optimize_tab` 클릭. 이후 `btn_optimize_confirm` 매칭 실패, 버튼 비활성화 감지, 또는 `roi_substat` OCR 결과 갱신 중 하나를 완료 조건으로 삼아 개방 로직을 수행.
+- **SEARCH:** `roi_list`에서 `template_plus_zero.png` 매칭 -> 매칭 좌표 클릭 -> `roi_enhance_tab` 중앙 클릭. (매칭 실패 시 **정상 종료**)
+- **ENHANCE:** `roi_expected_level` OCR 판독. 목표 레벨 이상이면 `roi_enhance_confirm` 중앙 클릭 후 OPTIMIZE 이동. 미달 시 `roi_slot_plus` 중앙 클릭 -> `roi_material`에서 `icon_discard` 탐색/클릭, 없으면 `roi_exp_material_1`~`roi_exp_material_4` 중 설정된 음파통 영역을 순차 중앙 클릭 -> 딜레이 후 루프. (재료 소진 시 **비상 종료**)
+- **OPTIMIZE:** `roi_optimize_tab` 중앙 클릭. 이후 `roi_optimize_confirm` 중앙 클릭 후 `roi_substat` OCR 결과 갱신을 완료 조건으로 삼아 개방 로직을 수행.
 - **EVALUATE:** `roi_substat` OCR 검증 -> 필터 조건 판별 -> 잠금/폐기.
 - **RETURN:** `ESC` 입력으로 에코 리스트 복귀. `remainingCount` 차감 후 SEARCH 재진입.
 
