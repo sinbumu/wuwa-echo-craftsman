@@ -48,7 +48,7 @@ WutheringWavesEchoCraftsman.sln
 
 ### 5.1. GUI 및 안전장치 (Fail-Safe)
 - `System.Windows.Forms.NotifyIcon`을 WPF 앱에서 연동하여 Windows 시스템 트레이에 상주.
-- **메인 설정:** 목표 레벨, 반복 횟수, 옵티마이즈 시행 횟수만 기본 노출. 시작 전 딜레이/클릭 대기/음파통 사용 슬롯 수 등은 상세 설정 Expander에 숨김.
+- **메인 설정:** 목표 레벨, 반복 횟수, 옵티마이즈 시행 횟수만 기본 노출. 시작 전 딜레이/클릭 대기/음파통 사용 슬롯 수/폐기 에코 재료 사용 여부 등은 상세 설정 Expander에 숨김.
 - **부옵션 설정:** 별도 창에서 잠금을 위한 최소 유효 부옵션 개수, 유효 부옵션 목록, 필수 부옵션 목록, 각 부옵션 최소 수치를 설정. 필수 체크 시 사용도 자동 체크되며, 필수 조건이 모두 만족되어야 잠금 가능.
 - **Dry-Run (테스트) 모드:** 활성화 시 실제 `SendInput` 호출을 생략하고 로그로 검증.
 - **글로벌 제어:** `F5` 시작, `F6` 강제 정지 (`CancellationTokenSource` 활용).
@@ -73,9 +73,9 @@ WutheringWavesEchoCraftsman.sln
 
 ### 5.4. 자동화 상태 머신 (Task-Driven State Machine)
 - **상태 머신은 각 루프 시작 시 GUI에서 설정한 `remainingCount`를 확인하고, 0 이하이면 정상 종료한다.**
-- **SEARCH:** `roi_list`에서 `template_plus_zero.png` 매칭 -> 매칭 좌표 클릭 -> `roi_enhance_tab` 중앙 클릭. (매칭 실패 시 **정상 종료**)
-- **ENHANCE:** +0 에코 전제이므로 먼저 `roi_slot_plus` 중앙 클릭 -> `roi_material`에서 `icon_discard` 탐색/클릭, 없으면 `roi_exp_material_1`~`roi_exp_material_4` 중 설정된 음파통 영역을 순차 중앙 클릭 -> `roi_expected_level` OCR 판독. 목표 레벨 이상이면 `ESC` 1회로 재료 선택장을 닫고 `roi_enhance_confirm` 중앙 클릭 -> 폐기 에코를 재료로 사용했다면 `roi_discard_material_confirm` 중앙 클릭 -> 잠시 대기 -> 강화 완료 오버레이를 `roi_enhance_complete_close` 중앙 클릭으로 닫고 OPTIMIZE 이동. 재료 클릭 5회 이상에도 예상 레벨이 증가하지 않으면 오류 기록 후 정지.
-- **OPTIMIZE:** `roi_optimize_tab` 중앙 클릭 -> `roi_optimize_count` OCR 판독 -> 목표 옵티마이즈 횟수에 맞도록 `roi_optimize_minus`/`roi_optimize_plus` 중앙 클릭 반복 -> 목표 횟수 확인 후 `roi_optimize_confirm` 중앙 클릭 -> 잠시 대기 -> 옵티마이즈 완료 오버레이를 `roi_optimize_complete_close` 중앙 클릭으로 닫고 `roi_substat` OCR 결과 갱신을 완료 조건으로 삼아 개방 로직을 수행. 일정 횟수 안에 목표 시행 횟수를 맞추지 못하면 오류 기록 후 정지.
+- **SEARCH:** `roi_list`에서 `template_plus_zero.png` 후보 전체 매칭 -> `Y 좌표`, `X 좌표` 순으로 정렬해 가장 위/왼쪽 후보 클릭 -> `roi_enhance_tab` 중앙 클릭. (매칭 실패 시 **정상 종료**)
+- **ENHANCE:** +0 에코 전제이므로 먼저 `roi_slot_plus` 중앙 클릭 -> 폐기 에코 사용 설정이 켜져 있으면 `roi_material`에서 `icon_discard` 탐색/클릭 -> 없거나 사용 설정이 꺼져 있으면 목표 레벨별 추천 횟수만큼 설정된 음파통 영역을 빠르게 클릭 -> `roi_expected_level` OCR 판독. 목표 레벨 이상이면 `ESC` 1회로 재료 선택장을 닫고 `roi_enhance_confirm` 중앙 클릭 -> 폐기 에코를 재료로 사용했다면 `roi_discard_material_confirm` 중앙 클릭 -> 잠시 대기 -> 강화 완료 오버레이를 `roi_enhance_complete_close` 중앙 클릭으로 닫고 OPTIMIZE 이동. 재료 클릭 5회 이상에도 예상 레벨이 증가하지 않으면 오류 기록 후 정지.
+- **OPTIMIZE:** `roi_optimize_tab` 중앙 클릭 -> `roi_optimize_count` OCR 판독 -> 목표 옵티마이즈 횟수와 현재 횟수의 차이만큼 `roi_optimize_minus`/`roi_optimize_plus` 연속 클릭 -> 최종 OCR 검증 후 `roi_optimize_confirm` 중앙 클릭 -> 잠시 대기 -> 옵티마이즈 완료 오버레이를 `roi_optimize_complete_close` 중앙 클릭으로 닫고 `roi_substat` OCR 결과 갱신을 완료 조건으로 삼아 개방 로직을 수행. 일정 횟수 안에 목표 시행 횟수를 맞추지 못하면 오류 기록 후 정지.
 - **EVALUATE:** `roi_substat` OCR 검증 -> 필터 조건 판별 -> 잠금/폐기.
 - **RETURN:** `ESC` 입력으로 에코 리스트 복귀. `remainingCount` 차감 후 SEARCH 재진입.
 

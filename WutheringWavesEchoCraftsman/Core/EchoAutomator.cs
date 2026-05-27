@@ -69,8 +69,9 @@ public sealed class EchoAutomator
         var listRegion = _config.Regions["roi_list"];
         using var listCapture = _screenCapturer.CaptureRegion(listRegion);
 
-        var match = FindAsset(listCapture, "template_plus_zero.png");
-        _log($"SEARCH: +0 매칭 confidence={match.Confidence:0.000}");
+        var matches = FindAssets(listCapture, "template_plus_zero.png");
+        var match = matches.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
+        _log($"SEARCH: +0 후보 {matches.Count}개, 선택 confidence={match.Confidence:0.000}, local=({match.CenterX}, {match.CenterY})");
         if (!match.Success)
         {
             return false;
@@ -86,7 +87,7 @@ public sealed class EchoAutomator
     private async Task EnhanceAsync(CancellationToken cancellationToken)
     {
         var previousExpectedLevel = await ReadExpectedLevelAsync(cancellationToken);
-        var stagnantMaterialClicks = 0;
+        var materialClicksWithoutLevelIncrease = 0;
         var usedDiscardMaterial = false;
 
         for (var attempt = 0; attempt < 20; attempt++)
@@ -96,28 +97,28 @@ public sealed class EchoAutomator
 
             await ClickRegionAsync("roi_slot_plus", cancellationToken);
 
-            var materialRegion = _config.Regions["roi_material"];
-            using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
-            var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
+            var materialClicksThisAttempt = 0;
+            var usedDiscardThisAttempt = false;
 
-            if (discard.Success)
+            if (_config.UseDiscardEchoMaterials)
             {
-                _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
-                usedDiscardMaterial = true;
-                await Task.Delay(ActionDelayMs, cancellationToken);
-            }
-            else
-            {
-                var expRegions = GetConfiguredExpMaterialRegions();
-                if (expRegions.Count == 0)
+                var materialRegion = _config.Regions["roi_material"];
+                using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
+                var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
+
+                if (discard.Success)
                 {
-                    throw new InvalidOperationException("재료 소진: 폐기 에코를 찾지 못했고 음파통 영역도 설정되지 않았습니다.");
+                    _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+                    usedDiscardMaterial = true;
+                    usedDiscardThisAttempt = true;
+                    materialClicksThisAttempt = 1;
+                    await Task.Delay(ActionDelayMs, cancellationToken);
                 }
+            }
 
-                var expRegion = expRegions[attempt % expRegions.Count];
-                ClickRegion(expRegion);
-                _log($"ENHANCE: 음파통 영역 클릭 ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
-                await Task.Delay(ExpMaterialClickDelayMs, cancellationToken);
+            if (!usedDiscardThisAttempt)
+            {
+                materialClicksThisAttempt = await ClickExpMaterialsBatchAsync(cancellationToken);
             }
 
             var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
@@ -126,11 +127,11 @@ public sealed class EchoAutomator
             if (expectedLevel > previousExpectedLevel)
             {
                 previousExpectedLevel = expectedLevel;
-                stagnantMaterialClicks = 0;
+                materialClicksWithoutLevelIncrease = 0;
             }
             else
             {
-                stagnantMaterialClicks++;
+                materialClicksWithoutLevelIncrease += Math.Max(1, materialClicksThisAttempt);
             }
 
             if (expectedLevel >= _config.TargetLevel)
@@ -148,7 +149,7 @@ public sealed class EchoAutomator
                 return;
             }
 
-            if (stagnantMaterialClicks >= 5)
+            if (materialClicksWithoutLevelIncrease >= 5)
             {
                 throw new InvalidOperationException("강화 재료를 5회 클릭했지만 예상 레벨이 증가하지 않았습니다.");
             }
@@ -229,7 +230,7 @@ public sealed class EchoAutomator
     {
         var targetCount = Math.Clamp(_config.TargetOptimizeCount, 1, 5);
 
-        for (var attempt = 0; attempt < 10; attempt++)
+        for (var attempt = 0; attempt < 3; attempt++)
         {
             var currentCount = await ReadOptimizeCountAsync(cancellationToken);
             _log($"OPTIMIZE: 현재 시행 횟수={currentCount}, 목표={targetCount}");
@@ -239,7 +240,22 @@ public sealed class EchoAutomator
                 return;
             }
 
-            await ClickRegionAsync(currentCount < targetCount ? "roi_optimize_plus" : "roi_optimize_minus", cancellationToken);
+            if (currentCount == 0)
+            {
+                await Task.Delay(ActionDelayMs, cancellationToken);
+                continue;
+            }
+
+            var regionKey = currentCount < targetCount ? "roi_optimize_plus" : "roi_optimize_minus";
+            var clickCount = Math.Abs(targetCount - currentCount);
+            for (var index = 0; index < clickCount; index++)
+            {
+                var region = _config.Regions[regionKey];
+                ClickRegion(region);
+                _log($"OPTIMIZE: {regionKey} 빠른 클릭 {index + 1}/{clickCount}");
+                await Task.Delay(OptimizeCountClickDelayMs, cancellationToken);
+            }
+
             await Task.Delay(ActionDelayMs, cancellationToken);
         }
 
@@ -303,6 +319,51 @@ public sealed class EchoAutomator
         ];
     }
 
+    private async Task<int> ClickExpMaterialsBatchAsync(CancellationToken cancellationToken)
+    {
+        var expRegions = GetConfiguredExpMaterialRegions();
+        if (expRegions.Count == 0)
+        {
+            throw new InvalidOperationException("재료 소진: 폐기 에코를 찾지 못했고 음파통 영역도 설정되지 않았습니다.");
+        }
+
+        var clickCount = GetSuggestedExpMaterialClickCount(_config.TargetLevel);
+        for (var index = 0; index < clickCount; index++)
+        {
+            var expRegion = expRegions[index % expRegions.Count];
+            ClickRegion(expRegion);
+            _log($"ENHANCE: 음파통 빠른 클릭 {index + 1}/{clickCount} ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
+            await Task.Delay(ExpMaterialClickDelayMs, cancellationToken);
+        }
+
+        return clickCount;
+    }
+
+    private static int GetSuggestedExpMaterialClickCount(int targetLevel)
+    {
+        if (targetLevel >= 25)
+        {
+            return 29;
+        }
+
+        if (targetLevel >= 20)
+        {
+            return 16;
+        }
+
+        if (targetLevel >= 15)
+        {
+            return 8;
+        }
+
+        if (targetLevel >= 10)
+        {
+            return 4;
+        }
+
+        return 1;
+    }
+
     private async Task<bool> ClickAssetOnScreenAsync(string assetName, CancellationToken cancellationToken, bool throwOnFailure = true)
     {
         using var screen = _screenCapturer.CaptureVirtualScreen();
@@ -330,6 +391,8 @@ public sealed class EchoAutomator
 
     private int ExpMaterialClickDelayMs => Math.Max(50, _config.ExpMaterialClickDelayMs);
 
+    private int OptimizeCountClickDelayMs => Math.Max(50, _config.OptimizeCountClickDelayMs);
+
     private TemplateMatchResult FindAsset(Bitmap source, string assetName, double threshold = 0.85)
     {
         var assetPath = _calibrationManager.ResolvePath(_config.Assets[assetName]);
@@ -341,6 +404,19 @@ public sealed class EchoAutomator
 
         using var template = new Bitmap(assetPath);
         return _visionProcessor.FindTemplate(source, template, threshold);
+    }
+
+    private IReadOnlyList<TemplateMatchResult> FindAssets(Bitmap source, string assetName, double threshold = 0.85)
+    {
+        var assetPath = _calibrationManager.ResolvePath(_config.Assets[assetName]);
+        if (!File.Exists(assetPath))
+        {
+            _log($"에셋 없음: {assetPath}");
+            return [];
+        }
+
+        using var template = new Bitmap(assetPath);
+        return _visionProcessor.FindTemplateMatches(source, template, threshold);
     }
 
     private void EnsureFailSafeNotTriggered()

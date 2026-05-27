@@ -29,6 +29,10 @@ public sealed class AppConfig
 
     public int ExpMaterialClickDelayMs { get; set; } = 150;
 
+    public int OptimizeCountClickDelayMs { get; set; } = 150;
+
+    public bool UseDiscardEchoMaterials { get; set; } = true;
+
     public Dictionary<string, RegionRect> Regions { get; set; } = CreateDefaultRegions();
 
     public Dictionary<string, string> Assets { get; set; } = CreateDefaultAssets();

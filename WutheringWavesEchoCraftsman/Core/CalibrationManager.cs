@@ -109,5 +109,10 @@ public sealed class CalibrationManager
         {
             config.ExpMaterialClickDelayMs = 150;
         }
+
+        if (config.OptimizeCountClickDelayMs <= 0)
+        {
+            config.OptimizeCountClickDelayMs = 150;
+        }
     }
 }

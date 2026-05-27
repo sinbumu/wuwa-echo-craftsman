@@ -27,6 +27,44 @@ public sealed class VisionProcessor
         return new TemplateMatchResult(maxValue >= threshold, maxValue, center.X, center.Y);
     }
 
+    public IReadOnlyList<TemplateMatchResult> FindTemplateMatches(Bitmap source, Bitmap template, double threshold = 0.85)
+    {
+        using var sourceMat = BitmapConverter.ToMat(source);
+        using var templateMat = BitmapConverter.ToMat(template);
+        using var result = new Mat();
+
+        Cv2.MatchTemplate(sourceMat, templateMat, result, TemplateMatchModes.CCoeffNormed);
+
+        var matches = new List<TemplateMatchResult>();
+        for (var y = 0; y < result.Rows; y++)
+        {
+            for (var x = 0; x < result.Cols; x++)
+            {
+                var confidence = result.At<float>(y, x);
+                if (confidence < threshold)
+                {
+                    continue;
+                }
+
+                var centerX = x + template.Width / 2;
+                var centerY = y + template.Height / 2;
+                if (matches.Any(match =>
+                        Math.Abs(match.CenterX - centerX) < template.Width / 2
+                        && Math.Abs(match.CenterY - centerY) < template.Height / 2))
+                {
+                    continue;
+                }
+
+                matches.Add(new TemplateMatchResult(true, confidence, centerX, centerY));
+            }
+        }
+
+        return matches
+            .OrderBy(match => match.CenterY)
+            .ThenBy(match => match.CenterX)
+            .ToArray();
+    }
+
     public async Task<string> RecognizeTextAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
     {
         using var softwareBitmap = await ToSoftwareBitmapAsync(bitmap, cancellationToken);

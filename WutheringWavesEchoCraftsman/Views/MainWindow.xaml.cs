@@ -73,7 +73,9 @@ public partial class MainWindow : Window
         ActionDelayTextBox.Text = _config.ActionDelayMs.ToString();
         CompletionDelayTextBox.Text = _config.CompletionOverlayDelayMs.ToString();
         ExpMaterialSlotsTextBox.Text = _config.ExpMaterialSlotsToUse.ToString();
+        UseDiscardEchoMaterialsCheckBox.IsChecked = _config.UseDiscardEchoMaterials;
         ExpMaterialDelayTextBox.Text = _config.ExpMaterialClickDelayMs.ToString();
+        OptimizeCountDelayTextBox.Text = _config.OptimizeCountClickDelayMs.ToString();
     }
 
     private void SaveConfigFromUi()
@@ -86,7 +88,9 @@ public partial class MainWindow : Window
         _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
         _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));
         _config.ExpMaterialSlotsToUse = Math.Clamp(ParseInt(ExpMaterialSlotsTextBox.Text, 1), 1, 4);
+        _config.UseDiscardEchoMaterials = UseDiscardEchoMaterialsCheckBox.IsChecked == true;
         _config.ExpMaterialClickDelayMs = Math.Max(50, ParseInt(ExpMaterialDelayTextBox.Text, 150));
+        _config.OptimizeCountClickDelayMs = Math.Max(50, ParseInt(OptimizeCountDelayTextBox.Text, 150));
 
         if (_config.SubstatRules.Count == 0)
         {
@@ -185,8 +189,9 @@ public partial class MainWindow : Window
         {
             var listRegion = _config.Regions["roi_list"];
             using var listCapture = _screenCapturer.CaptureRegion(listRegion);
-            var match = FindAsset(listCapture, "template_plus_zero.png", 0.85);
-            AppendLog($"TEST SEARCH: +0 confidence={match.Confidence:0.000}");
+            var matches = FindAssets(listCapture, "template_plus_zero.png", 0.85);
+            var match = matches.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
+            AppendLog($"TEST SEARCH: +0 후보 {matches.Count}개, 선택 confidence={match.Confidence:0.000}, local=({match.CenterX}, {match.CenterY})");
             if (!match.Success)
             {
                 return;
@@ -504,6 +509,24 @@ public partial class MainWindow : Window
 
         using var template = new Bitmap(assetPath);
         return _visionProcessor.FindTemplate(source, template, threshold);
+    }
+
+    private IReadOnlyList<TemplateMatchResult> FindAssets(Bitmap source, string assetName, double threshold)
+    {
+        if (!_config.Assets.TryGetValue(assetName, out var relativePath))
+        {
+            return [];
+        }
+
+        var assetPath = _calibrationManager.ResolvePath(relativePath);
+        if (!File.Exists(assetPath))
+        {
+            AppendLog($"에셋 없음: {assetPath}");
+            return [];
+        }
+
+        using var template = new Bitmap(assetPath);
+        return _visionProcessor.FindTemplateMatches(source, template, threshold);
     }
 
     private async Task<int> ReadNumberFromRegionAsync(string regionKey, int? min = null, int? max = null)

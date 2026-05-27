@@ -56,8 +56,16 @@
                         <TextBlock Text="사용할 음파통 영역 수(1~4)" />
                         <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Margin="0,2,0,8" />
 
+                        <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
+                                  Content="폐기 에코 강화재료로 사용"
+                                  IsChecked="True"
+                                  Margin="0,2,0,8" />
+
                         <TextBlock Text="음파통 클릭 후 대기(ms)" />
-                        <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,2,0,0" />
+                        <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,2,0,8" />
+
+                        <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)" />
+                        <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Margin="0,2,0,0" />
                     </StackPanel>
                 </Expander>
 
