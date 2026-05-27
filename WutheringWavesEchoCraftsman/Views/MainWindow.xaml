@@ -5,12 +5,43 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Wuwa Echo Craftsman"
-        Height="700"
-        Width="980"
+        Height="760"
+        Width="1040"
+        Background="#F6F7FB"
         Closing="Window_Closing"
         SourceInitialized="Window_SourceInitialized">
-    <DockPanel Margin="12">
-        <StatusBar DockPanel.Dock="Bottom">
+    <Window.Resources>
+        <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <Style x:Key="FieldLabelTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#4B5563" />
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#E5E7EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="18"
+                                      Direction="270"
+                                      Opacity="0.08"
+                                      ShadowDepth="3" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+        <StatusBar DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <StatusBarItem>
                 <TextBlock x:Name="StatusTextBlock" Text="준비됨" />
             </StatusBarItem>
@@ -23,67 +54,85 @@
             </Grid.ColumnDefinitions>
 
             <ScrollViewer Grid.Column="0"
-                          Margin="0,0,12,0"
+                          Margin="0,0,16,0"
                           VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <TextBlock Text="설정" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+                <StackPanel>
+                    <Border Style="{StaticResource CardBorderStyle}">
+                        <StackPanel>
+                            <TextBlock Text="주요 작업" Style="{StaticResource SectionTitleTextStyle}" />
+                            <Button Content="설정 저장" Click="SaveConfig_Click" Margin="0,0,0,8" />
+                            <Button Content="자동화 설정 관리" Click="Calibration_Click" Margin="0,0,0,8" />
+                            <Button Content="부옵션 설정" Click="SubstatSettings_Click" Margin="0,0,0,8" />
+                            <Button Content="자동화 시작 (F5)" Click="StartAutomation_Click" Margin="0,4,0,8" />
+                            <Button Content="자동화 정지 (F6)" Click="StopAutomation_Click" Margin="0,0,0,8" />
+                            <Button Content="히스토리 열기" Click="History_Click" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
 
-                <CheckBox x:Name="DryRunCheckBox"
-                          Content="Dry-run 모드"
-                          IsChecked="True"
-                          Margin="0,0,0,8" />
+                    <Border Style="{StaticResource CardBorderStyle}">
+                        <StackPanel>
+                            <TextBlock Text="자동화 설정" Style="{StaticResource SectionTitleTextStyle}" />
 
-                <TextBlock Text="목표 레벨" />
-                <TextBox x:Name="TargetLevelTextBox" Text="5" Margin="0,2,0,8" />
+                            <CheckBox x:Name="DryRunCheckBox"
+                                      Content="Dry-run 모드"
+                                      IsChecked="True"
+                                      Margin="0,0,0,10" />
 
-                <TextBlock Text="반복 횟수" />
-                <TextBox x:Name="RemainingCountTextBox" Text="1" Margin="0,2,0,8" />
+                            <TextBlock Text="목표 레벨" Style="{StaticResource FieldLabelTextStyle}" />
+                            <TextBox x:Name="TargetLevelTextBox" Text="5" Margin="0,0,0,10" />
 
-                <TextBlock Text="옵티마이즈 시행 횟수" />
-                <TextBox x:Name="OptimizeCountTextBox" Text="1" Margin="0,2,0,8" />
+                            <TextBlock Text="반복 횟수" Style="{StaticResource FieldLabelTextStyle}" />
+                            <TextBox x:Name="RemainingCountTextBox" Text="1" Margin="0,0,0,10" />
 
-                <Expander Header="상세 설정" Margin="0,4,0,12">
-                    <StackPanel Margin="0,8,0,0">
-                        <TextBlock Text="시작 전 딜레이(초)" />
-                        <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,2,0,8" />
+                            <TextBlock Text="옵티마이즈 시행 횟수" Style="{StaticResource FieldLabelTextStyle}" />
+                            <TextBox x:Name="OptimizeCountTextBox" Text="1" Margin="0,0,0,0" />
+                        </StackPanel>
+                    </Border>
 
-                        <TextBlock Text="클릭 후 기본 대기(ms)" />
-                        <TextBox x:Name="ActionDelayTextBox" Text="800" Margin="0,2,0,8" />
+                    <Border Style="{StaticResource CardBorderStyle}">
+                        <Expander Header="상세 설정">
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Text="시작 전 딜레이(초)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,0,0,10" />
 
-                        <TextBlock Text="완료 오버레이 대기(ms)" />
-                        <TextBox x:Name="CompletionDelayTextBox" Text="1800" Margin="0,2,0,8" />
+                                <TextBlock Text="클릭 후 기본 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="ActionDelayTextBox" Text="800" Margin="0,0,0,10" />
 
-                        <TextBlock Text="사용할 음파통 영역 수(1~4)" />
-                        <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Margin="0,2,0,8" />
+                                <TextBlock Text="완료 오버레이 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="CompletionDelayTextBox" Text="1800" Margin="0,0,0,10" />
 
-                        <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
-                                  Content="폐기 에코 강화재료로 사용"
-                                  IsChecked="True"
-                                  Margin="0,2,0,8" />
+                                <TextBlock Text="사용할 음파통 영역 수(1~4)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Margin="0,0,0,10" />
 
-                        <TextBlock Text="음파통 클릭 후 대기(ms)" />
-                        <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,2,0,8" />
+                                <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
+                                          Content="폐기 에코 강화재료로 사용"
+                                          IsChecked="True"
+                                          Margin="0,2,0,10" />
 
-                        <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)" />
-                        <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Margin="0,2,0,0" />
-                    </StackPanel>
-                </Expander>
+                                <TextBlock Text="음파통 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,0,0,10" />
 
-                <Button Content="설정 저장" Click="SaveConfig_Click" Margin="0,0,0,8" />
-                <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Margin="0,0,0,8" />
-                <Button Content="PoC: OCR 테스트" Click="OcrPoc_Click" Margin="0,0,0,8" />
-                <Button Content="PoC: 드래그 영역 OCR 원문" Click="FreeformOcrPoc_Click" Margin="0,0,0,8" />
-                <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Margin="0,0,0,8" />
-                <Button Content="단계 테스트: SEARCH" Click="TestSearch_Click" Margin="0,8,0,8" />
-                <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Margin="0,0,0,8" />
-                <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Margin="0,0,0,8" />
-                <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Margin="0,0,0,8" />
-                <Button Content="자동화 설정 관리" Click="Calibration_Click" Margin="0,8,0,8" />
-                <Button Content="부옵션 설정" Click="SubstatSettings_Click" Margin="0,0,0,8" />
-                <Button Content="자동화 시작 (F5)" Click="StartAutomation_Click" Margin="0,8,0,8" />
-                <Button Content="자동화 정지 (F6)" Click="StopAutomation_Click" Margin="0,0,0,8" />
-                <Button Content="히스토리 열기" Click="History_Click" Margin="0,8,0,8" />
-            </StackPanel>
+                                <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Margin="0,0,0,0" />
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+
+                    <Border Style="{StaticResource CardBorderStyle}">
+                        <Expander Header="테스트 버튼들">
+                            <StackPanel Margin="0,12,0,0">
+                                <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Margin="0,0,0,8" />
+                                <Button Content="PoC: OCR 테스트" Click="OcrPoc_Click" Margin="0,0,0,8" />
+                                <Button Content="PoC: 드래그 영역 OCR 원문" Click="FreeformOcrPoc_Click" Margin="0,0,0,8" />
+                                <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Margin="0,0,0,8" />
+                                <Button Content="단계 테스트: SEARCH" Click="TestSearch_Click" Margin="0,4,0,8" />
+                                <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Margin="0,0,0,8" />
+                                <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Margin="0,0,0,8" />
+                                <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Margin="0,0,0,0" />
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+                </StackPanel>
             </ScrollViewer>
 
             <Grid Grid.Column="1">
@@ -92,12 +141,13 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="로그" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock Text="로그" Style="{StaticResource SectionTitleTextStyle}" />
                 <TextBox x:Name="LogTextBox"
                          Grid.Row="1"
                          AcceptsReturn="True"
                          IsReadOnly="True"
                          TextWrapping="Wrap"
+                         Padding="12"
                          VerticalScrollBarVisibility="Auto" />
             </Grid>
         </Grid>
