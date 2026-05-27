@@ -25,6 +25,10 @@ public sealed class AppConfig
 
     public int CompletionOverlayDelayMs { get; set; } = 1800;
 
+    public int ExpMaterialSlotsToUse { get; set; } = 1;
+
+    public int ExpMaterialClickDelayMs { get; set; } = 150;
+
     public Dictionary<string, RegionRect> Regions { get; set; } = CreateDefaultRegions();
 
     public Dictionary<string, string> Assets { get; set; } = CreateDefaultAssets();
@@ -54,6 +58,7 @@ public static class CalibrationTargets
         "roi_expected_level",
         "roi_slot_plus",
         "roi_enhance_confirm",
+        "roi_discard_material_confirm",
         "roi_enhance_complete_close",
         "roi_optimize_tab",
         "roi_material",

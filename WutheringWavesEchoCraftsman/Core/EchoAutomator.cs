@@ -87,6 +87,7 @@ public sealed class EchoAutomator
     {
         var previousExpectedLevel = await ReadExpectedLevelAsync(cancellationToken);
         var stagnantMaterialClicks = 0;
+        var usedDiscardMaterial = false;
 
         for (var attempt = 0; attempt < 20; attempt++)
         {
@@ -102,6 +103,7 @@ public sealed class EchoAutomator
             if (discard.Success)
             {
                 _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+                usedDiscardMaterial = true;
                 await Task.Delay(ActionDelayMs, cancellationToken);
             }
             else
@@ -115,7 +117,7 @@ public sealed class EchoAutomator
                 var expRegion = expRegions[attempt % expRegions.Count];
                 ClickRegion(expRegion);
                 _log($"ENHANCE: 음파통 영역 클릭 ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
-                await Task.Delay(ActionDelayMs, cancellationToken);
+                await Task.Delay(ExpMaterialClickDelayMs, cancellationToken);
             }
 
             var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
@@ -137,6 +139,11 @@ public sealed class EchoAutomator
                 _log("ENHANCE: 재료 선택장 닫기 ESC 입력");
                 await Task.Delay(ActionDelayMs, cancellationToken);
                 await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
+                if (usedDiscardMaterial)
+                {
+                    await ClickRegionAsync("roi_discard_material_confirm", cancellationToken);
+                }
+
                 await CloseCompletionOverlayAsync("roi_enhance_complete_close", "ENHANCE", cancellationToken);
                 return;
             }
@@ -287,6 +294,7 @@ public sealed class EchoAutomator
         [
             .. Enumerable.Range(1, 4)
                 .Select(index => $"roi_exp_material_{index}")
+                .Take(Math.Clamp(_config.ExpMaterialSlotsToUse, 1, 4))
                 .Where(key => _config.Regions.TryGetValue(key, out var region) && !region.IsEmpty)
                 .Select(key => _config.Regions[key]),
         ];
@@ -316,6 +324,8 @@ public sealed class EchoAutomator
     private int ActionDelayMs => Math.Max(100, _config.ActionDelayMs);
 
     private int CompletionOverlayDelayMs => Math.Max(300, _config.CompletionOverlayDelayMs);
+
+    private int ExpMaterialClickDelayMs => Math.Max(50, _config.ExpMaterialClickDelayMs);
 
     private TemplateMatchResult FindAsset(Bitmap source, string assetName, double threshold = 0.85)
     {

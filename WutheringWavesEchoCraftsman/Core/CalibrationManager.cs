@@ -84,5 +84,30 @@ public sealed class CalibrationManager
         {
             config.Assets.TryAdd(key, Path.Combine("data", "assets", key));
         }
+
+        if (config.StartDelaySeconds <= 0)
+        {
+            config.StartDelaySeconds = 3;
+        }
+
+        if (config.ActionDelayMs <= 0)
+        {
+            config.ActionDelayMs = 800;
+        }
+
+        if (config.CompletionOverlayDelayMs <= 0)
+        {
+            config.CompletionOverlayDelayMs = 1800;
+        }
+
+        if (config.ExpMaterialSlotsToUse <= 0)
+        {
+            config.ExpMaterialSlotsToUse = 1;
+        }
+
+        if (config.ExpMaterialClickDelayMs <= 0)
+        {
+            config.ExpMaterialClickDelayMs = 150;
+        }
     }
 }

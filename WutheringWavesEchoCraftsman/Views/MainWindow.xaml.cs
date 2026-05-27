@@ -68,11 +68,12 @@ public partial class MainWindow : Window
         DryRunCheckBox.IsChecked = _config.DryRun;
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         RemainingCountTextBox.Text = _config.RemainingCount.ToString();
-        RequiredCountTextBox.Text = _config.RequiredValidSubstatCount.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
         StartDelayTextBox.Text = _config.StartDelaySeconds.ToString();
         ActionDelayTextBox.Text = _config.ActionDelayMs.ToString();
         CompletionDelayTextBox.Text = _config.CompletionOverlayDelayMs.ToString();
+        ExpMaterialSlotsTextBox.Text = _config.ExpMaterialSlotsToUse.ToString();
+        ExpMaterialDelayTextBox.Text = _config.ExpMaterialClickDelayMs.ToString();
     }
 
     private void SaveConfigFromUi()
@@ -80,11 +81,12 @@ public partial class MainWindow : Window
         _config.DryRun = DryRunCheckBox.IsChecked == true;
         _config.TargetLevel = ParseInt(TargetLevelTextBox.Text, 5);
         _config.RemainingCount = ParseInt(RemainingCountTextBox.Text, 1);
-        _config.RequiredValidSubstatCount = ParseInt(RequiredCountTextBox.Text, 2);
         _config.TargetOptimizeCount = ParseInt(OptimizeCountTextBox.Text, 1);
         _config.StartDelaySeconds = Math.Max(0, ParseInt(StartDelayTextBox.Text, 3));
         _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
         _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));
+        _config.ExpMaterialSlotsToUse = Math.Clamp(ParseInt(ExpMaterialSlotsTextBox.Text, 1), 1, 4);
+        _config.ExpMaterialClickDelayMs = Math.Max(50, ParseInt(ExpMaterialDelayTextBox.Text, 150));
 
         if (_config.SubstatRules.Count == 0)
         {
@@ -216,6 +218,7 @@ public partial class MainWindow : Window
 
             var expRegion = Enumerable.Range(1, 4)
                 .Select(index => $"roi_exp_material_{index}")
+                .Take(Math.Clamp(_config.ExpMaterialSlotsToUse, 1, 4))
                 .Select(key => _config.Regions.TryGetValue(key, out var region) ? region : RegionRect.Empty)
                 .FirstOrDefault(region => !region.IsEmpty) ?? RegionRect.Empty;
 
@@ -255,6 +258,17 @@ public partial class MainWindow : Window
             Owner = this,
         };
         window.Show();
+        await Task.CompletedTask;
+    }
+
+    private async void SubstatSettings_Click(object sender, RoutedEventArgs e)
+    {
+        SaveConfigFromUi();
+        var window = new SubstatSettingsWindow(_config, _calibrationManager.Save)
+        {
+            Owner = this,
+        };
+        window.ShowDialog();
         await Task.CompletedTask;
     }
 

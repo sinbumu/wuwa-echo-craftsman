@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Wuwa Echo Craftsman"
-        Height="780"
+        Height="700"
         Width="980"
         Closing="Window_Closing"
         SourceInitialized="Window_SourceInitialized">
@@ -39,20 +39,27 @@
                 <TextBlock Text="반복 횟수" />
                 <TextBox x:Name="RemainingCountTextBox" Text="1" Margin="0,2,0,8" />
 
-                <TextBlock Text="필요 유효 부옵션 개수" />
-                <TextBox x:Name="RequiredCountTextBox" Text="2" Margin="0,2,0,8" />
-
                 <TextBlock Text="옵티마이즈 시행 횟수" />
                 <TextBox x:Name="OptimizeCountTextBox" Text="1" Margin="0,2,0,8" />
 
-                <TextBlock Text="시작 전 딜레이(초)" />
-                <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,2,0,8" />
+                <Expander Header="상세 설정" Margin="0,4,0,12">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="시작 전 딜레이(초)" />
+                        <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,2,0,8" />
 
-                <TextBlock Text="클릭 후 기본 대기(ms)" />
-                <TextBox x:Name="ActionDelayTextBox" Text="800" Margin="0,2,0,8" />
+                        <TextBlock Text="클릭 후 기본 대기(ms)" />
+                        <TextBox x:Name="ActionDelayTextBox" Text="800" Margin="0,2,0,8" />
 
-                <TextBlock Text="완료 오버레이 대기(ms)" />
-                <TextBox x:Name="CompletionDelayTextBox" Text="1800" Margin="0,2,0,12" />
+                        <TextBlock Text="완료 오버레이 대기(ms)" />
+                        <TextBox x:Name="CompletionDelayTextBox" Text="1800" Margin="0,2,0,8" />
+
+                        <TextBlock Text="사용할 음파통 영역 수(1~4)" />
+                        <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Margin="0,2,0,8" />
+
+                        <TextBlock Text="음파통 클릭 후 대기(ms)" />
+                        <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,2,0,0" />
+                    </StackPanel>
+                </Expander>
 
                 <Button Content="설정 저장" Click="SaveConfig_Click" Margin="0,0,0,8" />
                 <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Margin="0,0,0,8" />
@@ -63,7 +70,8 @@
                 <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Margin="0,0,0,8" />
                 <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Margin="0,0,0,8" />
                 <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Margin="0,0,0,8" />
-                <Button Content="초기 설정 시작" Click="Calibration_Click" Margin="0,8,0,8" />
+                <Button Content="자동화 설정 관리" Click="Calibration_Click" Margin="0,8,0,8" />
+                <Button Content="부옵션 설정" Click="SubstatSettings_Click" Margin="0,0,0,8" />
                 <Button Content="자동화 시작 (F5)" Click="StartAutomation_Click" Margin="0,8,0,8" />
                 <Button Content="자동화 정지 (F6)" Click="StopAutomation_Click" Margin="0,0,0,8" />
                 <Button Content="히스토리 열기" Click="History_Click" Margin="0,8,0,8" />
