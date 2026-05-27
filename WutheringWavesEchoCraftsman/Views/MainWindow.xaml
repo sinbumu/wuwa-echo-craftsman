@@ -3,145 +3,256 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
         Title="wuwa-echo-craftsman"
-        Height="760"
-        Width="1040"
+        Height="820"
+        Width="1120"
+        MinHeight="720"
+        MinWidth="1000"
         Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
         Closing="Window_Closing"
         SourceInitialized="Window_SourceInitialized">
     <Window.Resources>
+        <SolidColorBrush x:Key="AccentBrush" Color="#5B5FC7" />
+        <SolidColorBrush x:Key="AccentHoverBrush" Color="#4F52B2" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="SoftSurfaceBrush" Color="#EEF2FF" />
+        <SolidColorBrush x:Key="DarkSoftSurfaceBrush" Color="#27304A" />
+
         <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontSize" Value="17" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="SectionCaptionTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,18" />
         </Style>
 
         <Style x:Key="FieldLabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="Margin" Value="0,0,0,3" />
+            <Setter Property="Margin" Value="0,0,0,6" />
         </Style>
 
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Padding" Value="16" />
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="22" />
+            <Setter Property="Margin" Value="0,0,0,18" />
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect BlurRadius="18"
+                    <DropShadowEffect BlurRadius="24"
                                       Direction="270"
-                                      Opacity="0.08"
-                                      ShadowDepth="3" />
+                                      Opacity="0.10"
+                                      ShadowDepth="4" />
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="52" />
+            <Setter Property="Padding" Value="18,0" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="SecondaryActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="GhostActionButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style x:Key="InputTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,0,16" />
+            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+        </Style>
+
+        <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostActionButtonStyle}">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
     </Window.Resources>
 
-    <DockPanel Margin="16">
+    <DockPanel Margin="24">
         <StatusBar DockPanel.Dock="Bottom"
-                   Margin="0,12,0,0"
+                   Margin="0,6,0,0"
+                   Padding="8,4"
                    Background="{DynamicResource CardBackgroundBrush}">
             <StatusBarItem>
                 <TextBlock x:Name="StatusTextBlock"
                            Text="준비됨"
+                           FontSize="12"
                            Foreground="{DynamicResource PrimaryTextBrush}" />
             </StatusBarItem>
         </StatusBar>
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="360" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <ScrollViewer Grid.Column="0"
-                          Margin="0,0,16,0"
+                          Margin="0,0,24,0"
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <Border Style="{StaticResource CardBorderStyle}">
                         <StackPanel>
-                            <TextBlock Text="주요 작업" Style="{StaticResource SectionTitleTextStyle}" />
-                            <Button Content="설정 저장" Click="SaveConfig_Click" Margin="0,0,0,8" />
-                            <Button Content="자동화 설정 관리" Click="Calibration_Click" Margin="0,0,0,8" />
-                            <Button Content="부옵션 설정" Click="SubstatSettings_Click" Margin="0,0,0,8" />
-                            <Button Content="자동화 시작 (F5)" Click="StartAutomation_Click" Margin="0,4,0,8" />
-                            <Button Content="자동화 정지 (F6)" Click="StopAutomation_Click" Margin="0,0,0,8" />
-                            <Button Content="히스토리 열기" Click="History_Click" Margin="0,4,0,0" />
+                            <TextBlock Text="실행 컨트롤" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="자동화 실행과 필수 관리 기능을 모았습니다." Style="{StaticResource SectionCaptionTextStyle}" />
+
+                            <Button Click="StartAutomation_Click" Style="{StaticResource PrimaryActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <ui:SymbolIcon Symbol="Play24" Margin="0,0,8,0" />
+                                    <TextBlock Text="자동화 시작 (F5)" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Click="StopAutomation_Click" Style="{StaticResource SecondaryActionButtonStyle}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <ui:SymbolIcon Symbol="Stop24" Margin="0,0,8,0" />
+                                    <TextBlock Text="자동화 정지 (F6)" />
+                                </StackPanel>
+                            </Button>
+
+                            <UniformGrid Columns="2" Margin="0,6,0,0">
+                                <Button Click="SaveConfig_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="0,0,6,10">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Save24" Margin="0,0,6,0" />
+                                        <TextBlock Text="설정 저장" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="History_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="6,0,0,10">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="History24" Margin="0,0,6,0" />
+                                        <TextBlock Text="히스토리" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="Calibration_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Settings24" Margin="0,0,6,0" />
+                                        <TextBlock Text="설정 관리" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="SubstatSettings_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="6,0,0,0">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Options24" Margin="0,0,6,0" />
+                                        <TextBlock Text="부옵션" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource CardBorderStyle}">
                         <StackPanel>
                             <TextBlock Text="자동화 설정" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="자주 바꾸는 기본 실행 파라미터입니다." Style="{StaticResource SectionCaptionTextStyle}" />
 
                             <CheckBox x:Name="DarkModeCheckBox"
                                       Content="다크 모드"
                                       Checked="DarkModeCheckBox_Changed"
                                       Unchecked="DarkModeCheckBox_Changed"
-                                      Margin="0,0,0,10" />
+                                      Margin="0,0,0,18" />
 
                             <TextBlock Text="목표 레벨" Style="{StaticResource FieldLabelTextStyle}" />
-                            <TextBox x:Name="TargetLevelTextBox" Text="5" Margin="0,0,0,10" />
+                            <TextBox x:Name="TargetLevelTextBox" Text="5" Style="{StaticResource InputTextBoxStyle}" />
 
                             <TextBlock Text="반복 횟수" Style="{StaticResource FieldLabelTextStyle}" />
-                            <TextBox x:Name="RemainingCountTextBox" Text="1" Margin="0,0,0,10" />
+                            <TextBox x:Name="RemainingCountTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" />
 
                             <TextBlock Text="옵티마이즈 시행 횟수" Style="{StaticResource FieldLabelTextStyle}" />
-                            <TextBox x:Name="OptimizeCountTextBox" Text="1" Margin="0,0,0,0" />
+                            <TextBox x:Name="OptimizeCountTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" Margin="0" />
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource CardBorderStyle}">
-                        <Expander Header="상세 설정">
+                        <Expander>
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Wrench24" Margin="0,0,8,0" />
+                                    <TextBlock Text="상세 설정" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Expander.Header>
                             <StackPanel Margin="0,12,0,0">
                                 <CheckBox x:Name="DryRunCheckBox"
                                           Content="Dry-run 모드"
                                           IsChecked="False"
-                                          Margin="0,0,0,10" />
+                                          Margin="0,0,0,16" />
 
                                 <TextBlock Text="시작 전 딜레이(초)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,0,0,10" />
+                                <TextBox x:Name="StartDelayTextBox" Text="3" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <TextBlock Text="클릭 후 기본 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="ActionDelayTextBox" Text="800" Margin="0,0,0,10" />
+                                <TextBox x:Name="ActionDelayTextBox" Text="800" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <TextBlock Text="완료 오버레이 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="CompletionDelayTextBox" Text="1800" Margin="0,0,0,10" />
+                                <TextBox x:Name="CompletionDelayTextBox" Text="1800" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <TextBlock Text="사용할 음파통 영역 수(1~4)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Margin="0,0,0,10" />
+                                <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
                                           Content="폐기 에코 강화재료로 사용"
                                           IsChecked="True"
-                                          Margin="0,2,0,10" />
+                                          Margin="0,2,0,16" />
 
                                 <TextBlock Text="음파통 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Margin="0,0,0,10" />
+                                <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Margin="0,0,0,0" />
+                                <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Style="{StaticResource InputTextBoxStyle}" Margin="0" />
                             </StackPanel>
                         </Expander>
                     </Border>
 
                     <Border Style="{StaticResource CardBorderStyle}">
-                        <Expander Header="테스트 버튼들">
+                        <Expander>
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Beaker24" Margin="0,0,8,0" />
+                                    <TextBlock Text="테스트 버튼들" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Expander.Header>
                             <StackPanel Margin="0,12,0,0">
-                                <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Margin="0,0,0,8" />
-                                <Button Content="PoC: OCR 테스트" Click="OcrPoc_Click" Margin="0,0,0,8" />
-                                <Button Content="PoC: 드래그 영역 OCR 원문" Click="FreeformOcrPoc_Click" Margin="0,0,0,8" />
-                                <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Margin="0,0,0,8" />
-                                <Button Content="단계 테스트: SEARCH" Click="TestSearch_Click" Margin="0,4,0,8" />
-                                <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Margin="0,0,0,8" />
-                                <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Margin="0,0,0,8" />
-                                <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Margin="0,0,0,0" />
+                                <Button Content="PoC: 화면 캡처" Click="CapturePoc_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="PoC: OCR 테스트" Click="OcrPoc_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="PoC: 드래그 영역 OCR 원문" Click="FreeformOcrPoc_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="단계 테스트: SEARCH" Click="TestSearch_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Style="{StaticResource ToolButtonStyle}" Margin="0" />
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -154,17 +265,65 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="로그" Style="{StaticResource SectionTitleTextStyle}" />
-                <TextBox x:Name="LogTextBox"
-                         Grid.Row="1"
-                         AcceptsReturn="True"
-                         IsReadOnly="True"
-                         TextWrapping="Wrap"
-                         Padding="12"
-                         Background="{DynamicResource CardBackgroundBrush}"
-                         Foreground="{DynamicResource PrimaryTextBrush}"
-                         BorderBrush="{DynamicResource CardBorderBrush}"
-                         VerticalScrollBarVisibility="Auto" />
+                <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,18">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Width="48"
+                                Height="48"
+                                CornerRadius="14"
+                                Background="{StaticResource SoftSurfaceBrush}"
+                                Margin="0,0,16,0">
+                            <ui:SymbolIcon Symbol="Info24"
+                                           FontSize="24"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="상태 표시 영역" Style="{StaticResource SectionTitleTextStyle}" />
+                            <TextBlock Text="자동화 진행 상황, OCR 결과, 오류 메시지를 아래 로그에서 확인합니다."
+                                       Style="{StaticResource SectionCaptionTextStyle}"
+                                       Margin="0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Margin="0,0,0,16">
+                            <ui:SymbolIcon Symbol="DocumentText24"
+                                           DockPanel.Dock="Left"
+                                           Margin="0,0,8,0"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="로그"
+                                       Style="{StaticResource SectionTitleTextStyle}"
+                                       Margin="0" />
+                        </DockPanel>
+
+                        <TextBox x:Name="LogTextBox"
+                                 Grid.Row="1"
+                                 AcceptsReturn="True"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 Padding="16"
+                                 FontFamily="Consolas"
+                                 FontSize="13"
+                                 Background="{DynamicResource AppBackgroundBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 BorderBrush="{DynamicResource CardBorderBrush}"
+                                 VerticalScrollBarVisibility="Auto" />
+                    </Grid>
+                </Border>
             </Grid>
         </Grid>
     </DockPanel>

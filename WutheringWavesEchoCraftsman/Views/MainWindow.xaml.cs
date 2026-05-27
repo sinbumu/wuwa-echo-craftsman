@@ -296,7 +296,7 @@ public partial class MainWindow : Window
         {
             Owner = this,
         };
-        window.Show();
+        window.ShowDialog();
         await Task.CompletedTask;
     }
 
