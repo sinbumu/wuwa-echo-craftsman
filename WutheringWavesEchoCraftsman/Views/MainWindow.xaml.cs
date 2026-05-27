@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
@@ -141,6 +142,198 @@ public partial class MainWindow : Window
     {
         SaveConfigFromUi();
         AppendLog("설정 저장 완료");
+    }
+
+    private async void ExportConfig_Click(object sender, RoutedEventArgs e)
+    {
+        SaveConfigFromUi();
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "설정 내보내기",
+            FileName = GetDefaultProfileFileName(),
+            Filter = "Zip archive (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            AppendLog("설정 내보내기 시작");
+            await Task.Run(() => ExportProfile(dialog.FileName));
+            AppendLog($"설정 내보내기 완료: {dialog.FileName}");
+            System.Windows.MessageBox.Show(this, "설정 내보내기가 완료되었습니다.", "설정 내보내기", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"설정 내보내기 실패: {ex.Message}");
+            System.Windows.MessageBox.Show(this, ex.Message, "설정 내보내기 실패", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void ImportConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "설정 불러오기",
+            Filter = "Zip archive (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            this,
+            "현재 캘리브레이션 설정과 에셋을 선택한 파일의 내용으로 덮어씁니다. 계속할까요?",
+            "설정 불러오기",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            AppendLog("설정 불러오기 시작");
+            await Task.Run(() => ImportProfile(dialog.FileName));
+            _config = _calibrationManager.LoadOrCreate();
+            LoadConfigToUi();
+            ApplyTheme(_config.DarkMode);
+            AppendLog("설정 불러오기 완료");
+            System.Windows.MessageBox.Show(this, "설정 불러오기가 완료되었습니다.", "설정 불러오기", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"설정 불러오기 실패: {ex.Message}");
+            System.Windows.MessageBox.Show(this, ex.Message, "설정 불러오기 실패", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ExportProfile(string destinationPath)
+    {
+        if (!File.Exists(_calibrationManager.ConfigPath))
+        {
+            throw new FileNotFoundException("내보낼 config.json 파일을 찾을 수 없습니다.", _calibrationManager.ConfigPath);
+        }
+
+        var destinationDirectory = Path.GetDirectoryName(destinationPath);
+        if (!string.IsNullOrWhiteSpace(destinationDirectory))
+        {
+            Directory.CreateDirectory(destinationDirectory);
+        }
+
+        if (File.Exists(destinationPath))
+        {
+            File.Delete(destinationPath);
+        }
+
+        using var archive = ZipFile.Open(destinationPath, ZipArchiveMode.Create);
+        archive.CreateEntryFromFile(_calibrationManager.ConfigPath, "config.json", CompressionLevel.Optimal);
+
+        if (!Directory.Exists(_calibrationManager.AssetsDirectory))
+        {
+            return;
+        }
+
+        foreach (var assetPath in Directory.EnumerateFiles(_calibrationManager.AssetsDirectory, "*.png", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(_calibrationManager.AssetsDirectory, assetPath)
+                .Replace(Path.DirectorySeparatorChar, '/')
+                .Replace(Path.AltDirectorySeparatorChar, '/');
+            archive.CreateEntryFromFile(assetPath, $"assets/{relativePath}", CompressionLevel.Optimal);
+        }
+    }
+
+    private void ImportProfile(string sourcePath)
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "wuwa-echo-craftsman-import", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            ValidateZipEntryPaths(sourcePath);
+            ZipFile.ExtractToDirectory(sourcePath, tempDirectory);
+
+            var importedConfigPath = Path.Combine(tempDirectory, "config.json");
+            var importedAssetsDirectory = Path.Combine(tempDirectory, "assets");
+            if (!File.Exists(importedConfigPath))
+            {
+                throw new InvalidOperationException("압축 파일에 config.json이 없습니다.");
+            }
+
+            if (!Directory.Exists(importedAssetsDirectory))
+            {
+                throw new InvalidOperationException("압축 파일에 assets 폴더가 없습니다.");
+            }
+
+            var hasRequiredPng = CalibrationTargets.RequiredAssetKeys
+                .Any(assetName => File.Exists(Path.Combine(importedAssetsDirectory, assetName)));
+            if (!hasRequiredPng)
+            {
+                throw new InvalidOperationException("압축 파일에 필수 템플릿 PNG가 없습니다.");
+            }
+
+            Directory.CreateDirectory(_calibrationManager.DataDirectory);
+            File.Copy(importedConfigPath, _calibrationManager.ConfigPath, overwrite: true);
+
+            if (Directory.Exists(_calibrationManager.AssetsDirectory))
+            {
+                Directory.Delete(_calibrationManager.AssetsDirectory, recursive: true);
+            }
+
+            Directory.CreateDirectory(_calibrationManager.AssetsDirectory);
+            foreach (var importedAssetPath in Directory.EnumerateFiles(importedAssetsDirectory, "*.png", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(importedAssetsDirectory, importedAssetPath);
+                var targetPath = Path.Combine(_calibrationManager.AssetsDirectory, relativePath);
+                var targetDirectory = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrWhiteSpace(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                File.Copy(importedAssetPath, targetPath, overwrite: true);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    private static void ValidateZipEntryPaths(string sourcePath)
+    {
+        using var archive = ZipFile.OpenRead(sourcePath);
+        foreach (var entry in archive.Entries)
+        {
+            if (Path.IsPathRooted(entry.FullName)
+                || entry.FullName.Contains("..", StringComparison.Ordinal)
+                || entry.FullName.Contains('\\', StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("압축 파일에 허용되지 않는 경로가 포함되어 있습니다.");
+            }
+        }
+    }
+
+    private static string GetDefaultProfileFileName()
+    {
+        var width = (int)SystemParameters.PrimaryScreenWidth;
+        var height = (int)SystemParameters.PrimaryScreenHeight;
+        return $"WuWa_{width}x{height}_Profile.zip";
     }
 
     private void CapturePoc_Click(object sender, RoutedEventArgs e)

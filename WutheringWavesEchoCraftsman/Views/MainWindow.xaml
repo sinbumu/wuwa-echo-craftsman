@@ -170,6 +170,18 @@
                                         <TextBlock Text="부옵션" />
                                     </StackPanel>
                                 </Button>
+                                <Button Click="ExportConfig_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="0,10,6,0">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="ArrowExport24" Margin="0,0,6,0" />
+                                        <TextBlock Text="내보내기" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="ImportConfig_Click" Style="{StaticResource GhostActionButtonStyle}" Margin="6,10,0,0">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="ArrowImport24" Margin="0,0,6,0" />
+                                        <TextBlock Text="불러오기" />
+                                    </StackPanel>
+                                </Button>
                             </UniformGrid>
                         </StackPanel>
                     </Border>
