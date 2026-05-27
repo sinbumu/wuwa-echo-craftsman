@@ -7,6 +7,52 @@
         Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
+    <Window.Resources>
+        <Style x:Key="VisibleDataGridCheckBoxStyle" TargetType="{x:Type CheckBox}">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type CheckBox}">
+                        <Grid Width="24" Height="24">
+                            <Border x:Name="CheckBoxBorder"
+                                    Width="18"
+                                    Height="18"
+                                    CornerRadius="5"
+                                    Background="{DynamicResource AppBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CardBorderBrush}"
+                                    BorderThickness="1.5"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" />
+                            <Path x:Name="CheckMark"
+                                  Data="M 5 12 L 10 17 L 19 7"
+                                  Stroke="White"
+                                  StrokeThickness="2.4"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  Visibility="Collapsed" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckBoxBorder" Property="Background" Value="#5B5FC7" />
+                                <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="#7C83FF" />
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="#7C83FF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <TextBlock Text="옵티마이즈 이후 잠금/폐기 판정에 사용할 부옵션 조건을 설정합니다."
@@ -57,8 +103,16 @@
                 </Style>
             </DataGrid.Resources>
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="사용" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                <DataGridCheckBoxColumn Header="필수" Binding="{Binding Required, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                <DataGridCheckBoxColumn Header="사용"
+                                        Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        ElementStyle="{StaticResource VisibleDataGridCheckBoxStyle}"
+                                        EditingElementStyle="{StaticResource VisibleDataGridCheckBoxStyle}"
+                                        Width="60" />
+                <DataGridCheckBoxColumn Header="필수"
+                                        Binding="{Binding Required, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        ElementStyle="{StaticResource VisibleDataGridCheckBoxStyle}"
+                                        EditingElementStyle="{StaticResource VisibleDataGridCheckBoxStyle}"
+                                        Width="60" />
                 <DataGridTextColumn Header="부옵션" Binding="{Binding DisplayName}" IsReadOnly="True" Width="160" />
                 <DataGridTextColumn Header="최소 수치" Binding="{Binding MinValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="110" />
                 <DataGridTextColumn Header="허용 범위" Binding="{Binding RangeText}" IsReadOnly="True" Width="140" />
