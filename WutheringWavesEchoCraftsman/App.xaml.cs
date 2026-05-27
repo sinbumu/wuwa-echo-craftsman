@@ -17,6 +17,8 @@ public partial class App : System.Windows.Application
     private Forms.NotifyIcon? _notifyIcon;
     private Icon? _trayIcon;
 
+    public static bool IsExplicitShutdownRequested { get; private set; }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         var splashStartedAt = DateTimeOffset.UtcNow;
@@ -24,6 +26,7 @@ public partial class App : System.Windows.Application
         splashScreen.Show(false);
 
         base.OnStartup(e);
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         var mainWindow = new MainWindow();
         MainWindow = mainWindow;
@@ -58,7 +61,14 @@ public partial class App : System.Windows.Application
                 mainWindow.Activate();
             });
         });
-        menu.Items.Add("종료", null, (_, _) => Dispatcher.Invoke(Shutdown));
+        menu.Items.Add("종료", null, (_, _) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                IsExplicitShutdownRequested = true;
+                Shutdown();
+            });
+        });
 
         _trayIcon = CreateTrayIcon();
         _notifyIcon = new Forms.NotifyIcon

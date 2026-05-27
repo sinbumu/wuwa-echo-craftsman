@@ -43,7 +43,7 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (System.Windows.Application.Current.ShutdownMode != ShutdownMode.OnExplicitShutdown)
+        if (!App.IsExplicitShutdownRequested)
         {
             e.Cancel = true;
             foreach (Window window in System.Windows.Application.Current.Windows.Cast<Window>().Where(window => window != this).ToArray())
