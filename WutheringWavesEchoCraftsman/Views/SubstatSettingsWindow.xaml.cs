@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Controls;
 using WutheringWavesEchoCraftsman.Models;
 
 namespace WutheringWavesEchoCraftsman.Views;
@@ -45,6 +48,7 @@ public partial class SubstatSettingsWindow : Window
                 stat.MinValue,
                 stat.MaxValue,
                 rule?.Enabled ?? false,
+                rule?.Required ?? false,
                 rule is null ? string.Empty : rule.MinValue.ToString("0.##", CultureInfo.InvariantCulture)));
         }
     }
@@ -54,7 +58,7 @@ public partial class SubstatSettingsWindow : Window
         _config.RequiredValidSubstatCount = Math.Clamp(ParseInt(RequiredCountTextBox.Text, 2), 0, 5);
         _config.SubstatRules = _rows
             .Where(row => row.Enabled)
-            .Select(row => new SubstatRule(row.Key, row.GetClampedMinValue(), true))
+            .Select(row => new SubstatRule(row.Key, row.GetClampedMinValue(), true, row.Required))
             .ToList();
 
         foreach (var row in _rows)
@@ -67,6 +71,17 @@ public partial class SubstatSettingsWindow : Window
         _save(_config);
     }
 
+    private void SubstatDataGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            foreach (var row in _rows)
+            {
+                row.NormalizeSelection();
+            }
+        });
+    }
+
     private static int ParseInt(string text, int fallback)
     {
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
@@ -75,17 +90,24 @@ public partial class SubstatSettingsWindow : Window
     }
 }
 
-public sealed class SubstatSettingRow
+public sealed class SubstatSettingRow : INotifyPropertyChanged
 {
-    public SubstatSettingRow(string key, string displayName, double minAllowed, double maxAllowed, bool enabled, string minValueText)
+    private bool _enabled;
+    private bool _required;
+    private string _minValueText;
+
+    public SubstatSettingRow(string key, string displayName, double minAllowed, double maxAllowed, bool enabled, bool required, string minValueText)
     {
         Key = key;
         DisplayName = displayName;
         MinAllowed = minAllowed;
         MaxAllowed = maxAllowed;
-        Enabled = enabled;
-        MinValueText = minValueText;
+        _enabled = enabled || required;
+        _required = required;
+        _minValueText = minValueText;
     }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public string Key { get; }
 
@@ -95,9 +117,37 @@ public sealed class SubstatSettingRow
 
     public double MaxAllowed { get; }
 
-    public bool Enabled { get; set; }
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (_required && !value)
+            {
+                value = true;
+            }
 
-    public string MinValueText { get; set; }
+            SetField(ref _enabled, value);
+        }
+    }
+
+    public bool Required
+    {
+        get => _required;
+        set
+        {
+            if (SetField(ref _required, value) && value)
+            {
+                Enabled = true;
+            }
+        }
+    }
+
+    public string MinValueText
+    {
+        get => _minValueText;
+        set => SetField(ref _minValueText, value);
+    }
 
     public string RangeText => $"{MinAllowed:0.##} ~ {MaxAllowed:0.##}";
 
@@ -108,5 +158,25 @@ public sealed class SubstatSettingRow
             : MinAllowed;
 
         return Math.Clamp(value, MinAllowed, MaxAllowed);
+    }
+
+    public void NormalizeSelection()
+    {
+        if (Required && !Enabled)
+        {
+            Enabled = true;
+        }
+    }
+
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 }

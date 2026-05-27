@@ -11,7 +11,7 @@
                        Margin="0,0,0,10" />
             <TextBlock Text="잠금을 위한 최소 유효 부옵션 개수" />
             <TextBox x:Name="RequiredCountTextBox" Width="120" HorizontalAlignment="Left" Margin="0,2,0,8" />
-            <TextBlock Text="최소 수치는 비워두면 해당 부옵션의 최저값을 사용합니다. 저장 시 허용 범위를 벗어난 값은 자동 보정됩니다."
+            <TextBlock Text="필수는 반드시 포함되어야 하는 옵션입니다. 필수 체크 시 사용도 자동 체크되며, 필수 상태에서는 사용을 끌 수 없습니다. 최소 수치는 비워두면 해당 부옵션의 최저값을 사용합니다."
                        TextWrapping="Wrap"
                        Foreground="DimGray" />
         </StackPanel>
@@ -32,9 +32,11 @@
         <DataGrid x:Name="SubstatDataGrid"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
-                  CanUserDeleteRows="False">
+                  CanUserDeleteRows="False"
+                  CellEditEnding="SubstatDataGrid_CellEditEnding">
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="사용" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                <DataGridCheckBoxColumn Header="필수" Binding="{Binding Required, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />
                 <DataGridTextColumn Header="부옵션" Binding="{Binding DisplayName}" IsReadOnly="True" Width="160" />
                 <DataGridTextColumn Header="최소 수치" Binding="{Binding MinValueText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="110" />
                 <DataGridTextColumn Header="허용 범위" Binding="{Binding RangeText}" IsReadOnly="True" Width="140" />

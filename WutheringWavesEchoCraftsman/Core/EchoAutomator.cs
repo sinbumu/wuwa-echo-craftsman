@@ -205,9 +205,12 @@ public sealed class EchoAutomator
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
         var validCount = parsed.Count(stat =>
             enabledRules.Any(rule => rule.Key == stat.Key && stat.Value >= rule.MinValue));
+        var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
+        var requiredSatisfied = requiredRules.All(rule =>
+            parsed.Any(stat => stat.Key == rule.Key && stat.Value >= rule.MinValue));
 
-        var decision = validCount >= _config.RequiredValidSubstatCount ? "LOCK" : "DISCARD";
-        _log($"EVALUATE: 유효 {validCount}/{_config.RequiredValidSubstatCount}, 판정={decision}");
+        var decision = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount ? "LOCK" : "DISCARD";
+        _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 판정={decision}");
 
         _inputController.PressKey(decision == "LOCK" ? VirtualKeys.C : VirtualKeys.Z);
         await _databaseService.InsertResultAsync(text, decision, validCount, cancellationToken);

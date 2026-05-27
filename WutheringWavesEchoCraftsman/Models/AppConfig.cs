@@ -47,7 +47,7 @@ public sealed class AppConfig
         CalibrationTargets.RequiredAssetKeys.ToDictionary(key => key, key => Path.Combine("data", "assets", key));
 }
 
-public sealed record SubstatRule(string Key, double MinValue, bool Enabled);
+public sealed record SubstatRule(string Key, double MinValue, bool Enabled, bool Required = false);
 
 public static class CalibrationTargets
 {
