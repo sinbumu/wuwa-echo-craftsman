@@ -3,9 +3,11 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
+using Media = System.Windows.Media;
 using WutheringWavesEchoCraftsman.Core;
 using WutheringWavesEchoCraftsman.Models;
 using WutheringWavesEchoCraftsman.Services;
+using Wpf.Ui.Appearance;
 
 namespace WutheringWavesEchoCraftsman.Views;
 
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
         _databaseService = new DatabaseService(Path.Combine(_calibrationManager.DataDirectory, "history.sqlite3"));
         _config = _calibrationManager.LoadOrCreate();
         LoadConfigToUi();
+        ApplyTheme(_config.DarkMode);
         AppendLog("앱 초기화 완료");
     }
 
@@ -66,6 +69,7 @@ public partial class MainWindow : Window
     private void LoadConfigToUi()
     {
         DryRunCheckBox.IsChecked = _config.DryRun;
+        DarkModeCheckBox.IsChecked = _config.DarkMode;
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         RemainingCountTextBox.Text = _config.RemainingCount.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
@@ -81,6 +85,7 @@ public partial class MainWindow : Window
     private void SaveConfigFromUi()
     {
         _config.DryRun = DryRunCheckBox.IsChecked == true;
+        _config.DarkMode = DarkModeCheckBox.IsChecked == true;
         _config.TargetLevel = ParseInt(TargetLevelTextBox.Text, 5);
         _config.RemainingCount = ParseInt(RemainingCountTextBox.Text, 1);
         _config.TargetOptimizeCount = ParseInt(OptimizeCountTextBox.Text, 1);
@@ -101,6 +106,30 @@ public partial class MainWindow : Window
         }
 
         _calibrationManager.Save(_config);
+        ApplyTheme(_config.DarkMode);
+    }
+
+    private void DarkModeCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _config.DarkMode = DarkModeCheckBox.IsChecked == true;
+        ApplyTheme(_config.DarkMode);
+    }
+
+    private static void ApplyTheme(bool darkMode)
+    {
+        ApplicationThemeManager.Apply(darkMode ? ApplicationTheme.Dark : ApplicationTheme.Light);
+
+        SetBrushResource("AppBackgroundBrush", darkMode ? "#111827" : "#F6F7FB");
+        SetBrushResource("CardBackgroundBrush", darkMode ? "#1F2937" : "#FFFFFF");
+        SetBrushResource("CardBorderBrush", darkMode ? "#374151" : "#E5E7EB");
+        SetBrushResource("PrimaryTextBrush", darkMode ? "#F9FAFB" : "#111827");
+        SetBrushResource("SecondaryTextBrush", darkMode ? "#D1D5DB" : "#4B5563");
+    }
+
+    private static void SetBrushResource(string key, string color)
+    {
+        System.Windows.Application.Current.Resources[key] = new Media.SolidColorBrush(
+            (Media.Color)Media.ColorConverter.ConvertFromString(color));
     }
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)

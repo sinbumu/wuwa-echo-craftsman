@@ -7,24 +7,26 @@
         Title="Wuwa Echo Craftsman"
         Height="760"
         Width="1040"
-        Background="#F6F7FB"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
         Closing="Window_Closing"
         SourceInitialized="Window_SourceInitialized">
     <Window.Resources>
         <Style x:Key="SectionTitleTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="Margin" Value="0,0,0,12" />
         </Style>
 
         <Style x:Key="FieldLabelTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#4B5563" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
             <Setter Property="Margin" Value="0,0,0,3" />
         </Style>
 
         <Style x:Key="CardBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#E5E7EB" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="14" />
             <Setter Property="Padding" Value="16" />
@@ -41,9 +43,13 @@
     </Window.Resources>
 
     <DockPanel Margin="16">
-        <StatusBar DockPanel.Dock="Bottom" Margin="0,12,0,0">
+        <StatusBar DockPanel.Dock="Bottom"
+                   Margin="0,12,0,0"
+                   Background="{DynamicResource CardBackgroundBrush}">
             <StatusBarItem>
-                <TextBlock x:Name="StatusTextBlock" Text="준비됨" />
+                <TextBlock x:Name="StatusTextBlock"
+                           Text="준비됨"
+                           Foreground="{DynamicResource PrimaryTextBrush}" />
             </StatusBarItem>
         </StatusBar>
 
@@ -73,9 +79,10 @@
                         <StackPanel>
                             <TextBlock Text="자동화 설정" Style="{StaticResource SectionTitleTextStyle}" />
 
-                            <CheckBox x:Name="DryRunCheckBox"
-                                      Content="Dry-run 모드"
-                                      IsChecked="True"
+                            <CheckBox x:Name="DarkModeCheckBox"
+                                      Content="다크 모드"
+                                      Checked="DarkModeCheckBox_Changed"
+                                      Unchecked="DarkModeCheckBox_Changed"
                                       Margin="0,0,0,10" />
 
                             <TextBlock Text="목표 레벨" Style="{StaticResource FieldLabelTextStyle}" />
@@ -92,6 +99,11 @@
                     <Border Style="{StaticResource CardBorderStyle}">
                         <Expander Header="상세 설정">
                             <StackPanel Margin="0,12,0,0">
+                                <CheckBox x:Name="DryRunCheckBox"
+                                          Content="Dry-run 모드"
+                                          IsChecked="False"
+                                          Margin="0,0,0,10" />
+
                                 <TextBlock Text="시작 전 딜레이(초)" Style="{StaticResource FieldLabelTextStyle}" />
                                 <TextBox x:Name="StartDelayTextBox" Text="3" Margin="0,0,0,10" />
 
@@ -148,6 +160,9 @@
                          IsReadOnly="True"
                          TextWrapping="Wrap"
                          Padding="12"
+                         Background="{DynamicResource CardBackgroundBrush}"
+                         Foreground="{DynamicResource PrimaryTextBrush}"
+                         BorderBrush="{DynamicResource CardBorderBrush}"
                          VerticalScrollBarVisibility="Auto" />
             </Grid>
         </Grid>

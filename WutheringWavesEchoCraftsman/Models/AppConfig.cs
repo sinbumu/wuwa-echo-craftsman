@@ -9,7 +9,9 @@ public sealed class AppConfig
 
     public int Version { get; set; } = CurrentVersion;
 
-    public bool DryRun { get; set; } = true;
+    public bool DryRun { get; set; } = false;
+
+    public bool DarkMode { get; set; } = false;
 
     public int TargetLevel { get; set; } = 5;
 
