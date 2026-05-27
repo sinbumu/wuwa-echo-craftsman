@@ -12,5 +12,12 @@ dotnet run --project WutheringWavesEchoCraftsman
 ## Publish
 
 ```powershell
-dotnet publish WutheringWavesEchoCraftsman -p:PublishProfile=win-x64-single-file
+make publish
+make package TAG=v1.0.0
+```
+
+GitHub Release까지 로컬에서 올리려면 `gh auth login` 후 실행합니다.
+
+```powershell
+make release TAG=v1.0.0
 ```
