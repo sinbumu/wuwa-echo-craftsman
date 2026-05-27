@@ -38,28 +38,44 @@ public sealed record SubstatInfo(string Key, string DisplayName, string[] Aliase
 
     public static IReadOnlyList<ParsedSubstat> ParseLines(string ocrText)
     {
-        return ocrText
+        var lines = ocrText
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(ParseLine)
-            .Where(parsed => parsed is not null)
-            .Cast<ParsedSubstat>()
+            .ToArray();
+
+        var namedStats = lines
+            .Select(line => new
+            {
+                RawText = line,
+                Stat = FindByText(line),
+            })
+            .Where(item => item.Stat is not null)
+            .ToArray();
+
+        var values = lines
+            .Where(IsValueLine)
+            .Select(ParseValue)
+            .ToArray();
+
+        return namedStats
+            .Select((item, index) => new ParsedSubstat(
+                item.Stat!.Key,
+                item.Stat.DisplayName,
+                index < values.Length ? values[index] : 0,
+                item.RawText))
             .ToArray();
     }
 
-    private static ParsedSubstat? ParseLine(string line)
+    private static bool IsValueLine(string line)
     {
-        var stat = FindByText(line);
-        if (stat is null)
-        {
-            return null;
-        }
+        return FindByText(line) is null && Regex.IsMatch(line, @"\d+(?:[.,]\d+)?\s*%?");
+    }
 
+    private static double ParseValue(string line)
+    {
         var match = Regex.Match(line, @"[-+]?\d+(?:[.,]\d+)?");
-        var value = match.Success
+        return match.Success
             ? double.Parse(match.Value.Replace(',', '.'), CultureInfo.InvariantCulture)
             : 0;
-
-        return new ParsedSubstat(stat.Key, stat.DisplayName, value, line);
     }
 }
 

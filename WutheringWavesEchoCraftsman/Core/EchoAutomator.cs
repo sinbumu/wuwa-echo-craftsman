@@ -56,7 +56,7 @@ public sealed class EchoAutomator
             await EvaluateAsync(cancellationToken);
 
             _inputController.PressKey(VirtualKeys.Escape);
-            await Task.Delay(500, cancellationToken);
+            await Task.Delay(ActionDelayMs, cancellationToken);
             remaining--;
             _config.RemainingCount = remaining;
         }
@@ -77,7 +77,7 @@ public sealed class EchoAutomator
         }
 
         _inputController.Click(listRegion.X + match.CenterX, listRegion.Y + match.CenterY);
-        await Task.Delay(300, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
         await ClickRegionAsync("roi_enhance_tab", cancellationToken);
 
         return true;
@@ -85,19 +85,13 @@ public sealed class EchoAutomator
 
     private async Task EnhanceAsync(CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < 10; attempt++)
+        var previousExpectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+        var stagnantMaterialClicks = 0;
+
+        for (var attempt = 0; attempt < 20; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             EnsureFailSafeNotTriggered();
-
-            var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
-            _log($"ENHANCE: 강화 후 예상 레벨 판독={expectedLevel}");
-            if (expectedLevel >= _config.TargetLevel)
-            {
-                await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
-                await CloseCompletionOverlayAsync("roi_enhance_complete_close", "ENHANCE", cancellationToken);
-                return;
-            }
 
             await ClickRegionAsync("roi_slot_plus", cancellationToken);
 
@@ -108,20 +102,46 @@ public sealed class EchoAutomator
             if (discard.Success)
             {
                 _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
-                await Task.Delay(400, cancellationToken);
-                continue;
+                await Task.Delay(ActionDelayMs, cancellationToken);
             }
-
-            var expRegions = GetConfiguredExpMaterialRegions();
-            if (expRegions.Count == 0)
+            else
             {
-                throw new InvalidOperationException("재료 소진: 폐기 에코를 찾지 못했고 음파통 영역도 설정되지 않았습니다.");
+                var expRegions = GetConfiguredExpMaterialRegions();
+                if (expRegions.Count == 0)
+                {
+                    throw new InvalidOperationException("재료 소진: 폐기 에코를 찾지 못했고 음파통 영역도 설정되지 않았습니다.");
+                }
+
+                var expRegion = expRegions[attempt % expRegions.Count];
+                ClickRegion(expRegion);
+                _log($"ENHANCE: 음파통 영역 클릭 ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
+                await Task.Delay(ActionDelayMs, cancellationToken);
             }
 
-            var expRegion = expRegions[attempt % expRegions.Count];
-            ClickRegion(expRegion);
-            _log($"ENHANCE: 음파통 영역 클릭 ({expRegion.X}, {expRegion.Y}, {expRegion.Width}, {expRegion.Height})");
-            await Task.Delay(400, cancellationToken);
+            var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+            _log($"ENHANCE: 강화 후 예상 레벨 판독={expectedLevel}");
+
+            if (expectedLevel > previousExpectedLevel)
+            {
+                previousExpectedLevel = expectedLevel;
+                stagnantMaterialClicks = 0;
+            }
+            else
+            {
+                stagnantMaterialClicks++;
+            }
+
+            if (expectedLevel >= _config.TargetLevel)
+            {
+                await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
+                await CloseCompletionOverlayAsync("roi_enhance_complete_close", "ENHANCE", cancellationToken);
+                return;
+            }
+
+            if (stagnantMaterialClicks >= 5)
+            {
+                throw new InvalidOperationException("강화 재료를 5회 클릭했지만 예상 레벨이 증가하지 않았습니다.");
+            }
         }
 
         throw new InvalidOperationException("강화 반복 제한을 초과했습니다.");
@@ -130,7 +150,7 @@ public sealed class EchoAutomator
     private async Task OptimizeAsync(CancellationToken cancellationToken)
     {
         await ClickRegionAsync("roi_optimize_tab", cancellationToken);
-        await Task.Delay(500, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
 
         if (!_config.Regions.TryGetValue("roi_substat", out var substatRegion) || substatRegion.IsEmpty)
         {
@@ -145,13 +165,15 @@ public sealed class EchoAutomator
             previousText = await _visionProcessor.RecognizeTextAsync(before, cancellationToken);
         }
 
+        await SetOptimizeCountAsync(cancellationToken);
+
         for (var attempt = 0; attempt < 5; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await ClickRegionAsync("roi_optimize_confirm", cancellationToken);
             await CloseCompletionOverlayAsync("roi_optimize_complete_close", "OPTIMIZE", cancellationToken);
 
-            await Task.Delay(800, cancellationToken);
+            await Task.Delay(ActionDelayMs, cancellationToken);
             using var after = _screenCapturer.CaptureRegion(substatRegion);
             var currentText = await _visionProcessor.RecognizeTextAsync(after, cancellationToken);
             if (!string.Equals(previousText, currentText, StringComparison.Ordinal))
@@ -190,17 +212,51 @@ public sealed class EchoAutomator
         return match.Success ? int.Parse(match.Groups[1].Value) : 0;
     }
 
+    private async Task SetOptimizeCountAsync(CancellationToken cancellationToken)
+    {
+        var targetCount = Math.Clamp(_config.TargetOptimizeCount, 1, 5);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var currentCount = await ReadOptimizeCountAsync(cancellationToken);
+            _log($"OPTIMIZE: 현재 시행 횟수={currentCount}, 목표={targetCount}");
+
+            if (currentCount == targetCount)
+            {
+                return;
+            }
+
+            await ClickRegionAsync(currentCount < targetCount ? "roi_optimize_plus" : "roi_optimize_minus", cancellationToken);
+            await Task.Delay(ActionDelayMs, cancellationToken);
+        }
+
+        throw new InvalidOperationException($"옵티마이즈 시행 횟수를 목표값({_config.TargetOptimizeCount})으로 맞추지 못했습니다.");
+    }
+
+    private async Task<int> ReadOptimizeCountAsync(CancellationToken cancellationToken)
+    {
+        var countRegion = _config.Regions["roi_optimize_count"];
+        using var capture = _screenCapturer.CaptureRegion(countRegion);
+        var text = await _visionProcessor.RecognizeTextAsync(capture, cancellationToken);
+        var matches = Regex.Matches(text, @"\d+")
+            .Select(match => int.Parse(match.Value))
+            .Where(value => value is >= 1 and <= 5)
+            .ToArray();
+
+        return matches.LastOrDefault();
+    }
+
     private async Task ClickRegionAsync(string regionKey, CancellationToken cancellationToken)
     {
         var region = _config.Regions[regionKey];
         ClickRegion(region);
         _log($"{regionKey}: 중앙 클릭 ({region.X + region.Width / 2}, {region.Y + region.Height / 2})");
-        await Task.Delay(300, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
     }
 
     private async Task CloseCompletionOverlayAsync(string regionKey, string phase, CancellationToken cancellationToken)
     {
-        await Task.Delay(1200, cancellationToken);
+        await Task.Delay(CompletionOverlayDelayMs, cancellationToken);
         if (!_config.Regions.TryGetValue(regionKey, out var region) || region.IsEmpty)
         {
             _log($"{phase}: 완료 오버레이 닫기 영역이 설정되지 않아 닫기 클릭을 건너뜁니다.");
@@ -209,7 +265,7 @@ public sealed class EchoAutomator
 
         ClickRegion(region);
         _log($"{phase}: 완료 오버레이 닫기 클릭 ({region.X + region.Width / 2}, {region.Y + region.Height / 2})");
-        await Task.Delay(500, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
     }
 
     private void ClickRegion(RegionRect region)
@@ -250,9 +306,13 @@ public sealed class EchoAutomator
         }
 
         _inputController.Click(match.CenterX, match.CenterY);
-        await Task.Delay(300, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
         return true;
     }
+
+    private int ActionDelayMs => Math.Max(100, _config.ActionDelayMs);
+
+    private int CompletionOverlayDelayMs => Math.Max(300, _config.CompletionOverlayDelayMs);
 
     private TemplateMatchResult FindAsset(Bitmap source, string assetName, double threshold = 0.85)
     {

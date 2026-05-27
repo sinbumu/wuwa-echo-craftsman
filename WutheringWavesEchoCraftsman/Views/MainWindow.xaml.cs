@@ -1,4 +1,6 @@
+using System.Drawing;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
 using WutheringWavesEchoCraftsman.Core;
@@ -67,6 +69,10 @@ public partial class MainWindow : Window
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         RemainingCountTextBox.Text = _config.RemainingCount.ToString();
         RequiredCountTextBox.Text = _config.RequiredValidSubstatCount.ToString();
+        OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
+        StartDelayTextBox.Text = _config.StartDelaySeconds.ToString();
+        ActionDelayTextBox.Text = _config.ActionDelayMs.ToString();
+        CompletionDelayTextBox.Text = _config.CompletionOverlayDelayMs.ToString();
     }
 
     private void SaveConfigFromUi()
@@ -75,6 +81,10 @@ public partial class MainWindow : Window
         _config.TargetLevel = ParseInt(TargetLevelTextBox.Text, 5);
         _config.RemainingCount = ParseInt(RemainingCountTextBox.Text, 1);
         _config.RequiredValidSubstatCount = ParseInt(RequiredCountTextBox.Text, 2);
+        _config.TargetOptimizeCount = ParseInt(OptimizeCountTextBox.Text, 1);
+        _config.StartDelaySeconds = Math.Max(0, ParseInt(StartDelayTextBox.Text, 3));
+        _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
+        _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));
 
         if (_config.SubstatRules.Count == 0)
         {
@@ -119,12 +129,122 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void FreeformOcrPoc_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            AppendLog("3초 후 화면을 캡처합니다. OCR로 읽을 화면을 준비하세요.");
+            Hide();
+            await Task.Delay(3000);
+
+            using var screenshot = _screenCapturer.CaptureVirtualScreen();
+            Show();
+            Activate();
+
+            var step = new CalibrationStep(
+                "poc_freeform_ocr",
+                "임의 OCR 테스트 영역",
+                CalibrationStepKind.Region,
+                CalibrationScreen.Optimize,
+                "OCR 원문을 확인할 영역을 드래그하세요. 저장하지 않고 로그에만 출력합니다.");
+            var result = await CalibrationOverlay.CaptureAsync(screenshot, step);
+            if (result is null)
+            {
+                AppendLog("임의 OCR 테스트 취소");
+                return;
+            }
+
+            using var crop = screenshot.Clone(result.Region.ToRectangle(), screenshot.PixelFormat);
+            var text = await _visionProcessor.RecognizeTextAsync(crop);
+            AppendLog($"임의 OCR 원문 ({result.Region.X},{result.Region.Y},{result.Region.Width},{result.Region.Height}):{Environment.NewLine}{text}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"임의 OCR 테스트 실패: {ex.Message}");
+        }
+        finally
+        {
+            Show();
+            Activate();
+        }
+    }
+
     private void InputPoc_Click(object sender, RoutedEventArgs e)
     {
         SaveConfigFromUi();
         var input = new InputController(_config.DryRun, AppendLog);
         input.PressKey(VirtualKeys.C);
         AppendLog("입력 PoC 실행 완료");
+    }
+
+    private async void TestSearch_Click(object sender, RoutedEventArgs e)
+    {
+        await RunStepTestAsync("SEARCH", async input =>
+        {
+            var listRegion = _config.Regions["roi_list"];
+            using var listCapture = _screenCapturer.CaptureRegion(listRegion);
+            var match = FindAsset(listCapture, "template_plus_zero.png", 0.85);
+            AppendLog($"TEST SEARCH: +0 confidence={match.Confidence:0.000}");
+            if (!match.Success)
+            {
+                return;
+            }
+
+            input.Click(listRegion.X + match.CenterX, listRegion.Y + match.CenterY);
+            await Task.Delay(_config.ActionDelayMs);
+            ClickRegion(input, "roi_enhance_tab");
+        });
+    }
+
+    private async void TestMaterial_Click(object sender, RoutedEventArgs e)
+    {
+        await RunStepTestAsync("재료 1회 투입", async input =>
+        {
+            ClickRegion(input, "roi_slot_plus");
+            await Task.Delay(_config.ActionDelayMs);
+
+            var materialRegion = _config.Regions["roi_material"];
+            using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
+            var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
+            AppendLog($"TEST MATERIAL: 폐기 에코 confidence={discard.Confidence:0.000}");
+
+            if (discard.Success)
+            {
+                input.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+                return;
+            }
+
+            var expRegion = Enumerable.Range(1, 4)
+                .Select(index => $"roi_exp_material_{index}")
+                .Select(key => _config.Regions.TryGetValue(key, out var region) ? region : RegionRect.Empty)
+                .FirstOrDefault(region => !region.IsEmpty) ?? RegionRect.Empty;
+
+            if (expRegion.IsEmpty)
+            {
+                AppendLog("TEST MATERIAL: 설정된 음파통 영역이 없습니다.");
+                return;
+            }
+
+            input.Click(expRegion.X + expRegion.Width / 2, expRegion.Y + expRegion.Height / 2);
+        });
+    }
+
+    private async void TestExpectedLevel_Click(object sender, RoutedEventArgs e)
+    {
+        await RunStepTestAsync("예상 레벨 OCR", async _ =>
+        {
+            var level = await ReadNumberFromRegionAsync("roi_expected_level");
+            AppendLog($"TEST OCR: 강화 후 예상 레벨={level}");
+        });
+    }
+
+    private async void TestOptimizeCount_Click(object sender, RoutedEventArgs e)
+    {
+        await RunStepTestAsync("옵티 횟수 OCR", async _ =>
+        {
+            var count = await ReadNumberFromRegionAsync("roi_optimize_count", min: 1, max: 5);
+            AppendLog($"TEST OCR: 옵티마이즈 시행 횟수={count}");
+        });
     }
 
     private async void Calibration_Click(object sender, RoutedEventArgs e)
@@ -284,6 +404,7 @@ public partial class MainWindow : Window
 
         try
         {
+            await PrepareForGameInputAsync("자동화 시작");
             await Task.Run(async () => await automator.RunAsync(_automationCancellation.Token), _automationCancellation.Token);
         }
         catch (OperationCanceledException ex)
@@ -299,6 +420,8 @@ public partial class MainWindow : Window
             _automationCancellation.Dispose();
             _automationCancellation = null;
             _calibrationManager.Save(_config);
+            Show();
+            Activate();
         }
     }
 
@@ -306,6 +429,87 @@ public partial class MainWindow : Window
     {
         _automationCancellation?.Cancel();
         AppendLog("정지 요청 전송");
+    }
+
+    private async Task RunStepTestAsync(string name, Func<InputController, Task> action)
+    {
+        SaveConfigFromUi();
+        var input = new InputController(_config.DryRun, AppendLog);
+
+        try
+        {
+            await PrepareForGameInputAsync($"단계 테스트: {name}");
+            await action(input);
+            AppendLog($"단계 테스트 완료: {name}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"단계 테스트 실패({name}): {ex.Message}");
+        }
+        finally
+        {
+            Show();
+            Activate();
+        }
+    }
+
+    private async Task PrepareForGameInputAsync(string purpose)
+    {
+        AppendLog($"{purpose}: {_config.StartDelaySeconds}초 후 실행합니다. 명조 창을 포커스하세요.");
+        Hide();
+        await Task.Delay(TimeSpan.FromSeconds(_config.StartDelaySeconds));
+    }
+
+    private void ClickRegion(InputController input, string regionKey)
+    {
+        var region = _config.Regions[regionKey];
+        if (region.IsEmpty)
+        {
+            throw new InvalidOperationException($"{regionKey} 영역이 설정되지 않았습니다.");
+        }
+
+        var x = region.X + region.Width / 2;
+        var y = region.Y + region.Height / 2;
+        AppendLog($"{regionKey}: 중앙 클릭 ({x}, {y})");
+        input.Click(x, y);
+    }
+
+    private TemplateMatchResult FindAsset(Bitmap source, string assetName, double threshold)
+    {
+        if (!_config.Assets.TryGetValue(assetName, out var relativePath))
+        {
+            return new TemplateMatchResult(false, 0, 0, 0);
+        }
+
+        var assetPath = _calibrationManager.ResolvePath(relativePath);
+        if (!File.Exists(assetPath))
+        {
+            AppendLog($"에셋 없음: {assetPath}");
+            return new TemplateMatchResult(false, 0, 0, 0);
+        }
+
+        using var template = new Bitmap(assetPath);
+        return _visionProcessor.FindTemplate(source, template, threshold);
+    }
+
+    private async Task<int> ReadNumberFromRegionAsync(string regionKey, int? min = null, int? max = null)
+    {
+        var region = _config.Regions[regionKey];
+        if (region.IsEmpty)
+        {
+            throw new InvalidOperationException($"{regionKey} 영역이 설정되지 않았습니다.");
+        }
+
+        using var capture = _screenCapturer.CaptureRegion(region);
+        var text = await _visionProcessor.RecognizeTextAsync(capture);
+        AppendLog($"{regionKey} OCR 원문:{Environment.NewLine}{text}");
+
+        var values = Regex.Matches(text, @"\d+")
+            .Select(match => int.Parse(match.Value))
+            .Where(value => (!min.HasValue || value >= min.Value) && (!max.HasValue || value <= max.Value))
+            .ToArray();
+
+        return values.LastOrDefault();
     }
 
     private void AppendLog(string message)

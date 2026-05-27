@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Forms = System.Windows.Forms;
 
 namespace WutheringWavesEchoCraftsman.Core;
 
@@ -22,9 +23,12 @@ public sealed class InputController
             return;
         }
 
-        SetCursorPos(x, y);
-        SendMouse(MouseEventFlags.LeftDown);
-        SendMouse(MouseEventFlags.LeftUp);
+        SendAbsoluteMove(x, y);
+        Thread.Sleep(40);
+
+        SendMouse(MouseEventFlags.LeftDown, "MouseLeftDown");
+        Thread.Sleep(60);
+        SendMouse(MouseEventFlags.LeftUp, "MouseLeftUp");
     }
 
     public void PressKey(ushort virtualKey)
@@ -35,8 +39,9 @@ public sealed class InputController
             return;
         }
 
-        SendKeyboard(virtualKey, 0);
-        SendKeyboard(virtualKey, KeyEventFlags.KeyUp);
+        SendKeyboard(virtualKey, 0, "KeyDown");
+        Thread.Sleep(40);
+        SendKeyboard(virtualKey, KeyEventFlags.KeyUp, "KeyUp");
     }
 
     public (int X, int Y) GetCursorPosition()
@@ -46,7 +51,7 @@ public sealed class InputController
             : (0, 0);
     }
 
-    private static void SendMouse(MouseEventFlags flags)
+    private void SendMouse(MouseEventFlags flags, string label)
     {
         var input = new INPUT
         {
@@ -60,10 +65,47 @@ public sealed class InputController
             },
         };
 
-        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var sent = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var error = Marshal.GetLastWin32Error();
+        _log($"{label} SendInput => sent={sent}, error={error}");
     }
 
-    private static void SendKeyboard(ushort virtualKey, KeyEventFlags flags)
+    private void SendAbsoluteMove(int x, int y)
+    {
+        var virtualScreen = Forms.SystemInformation.VirtualScreen;
+        var normalizedX = NormalizeAbsoluteCoordinate(x, virtualScreen.Left, virtualScreen.Width);
+        var normalizedY = NormalizeAbsoluteCoordinate(y, virtualScreen.Top, virtualScreen.Height);
+
+        var input = new INPUT
+        {
+            type = InputType.Mouse,
+            U = new InputUnion
+            {
+                mi = new MOUSEINPUT
+                {
+                    dx = normalizedX,
+                    dy = normalizedY,
+                    dwFlags = MouseEventFlags.Move | MouseEventFlags.Absolute | MouseEventFlags.VirtualDesk,
+                },
+            },
+        };
+
+        var sent = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var error = Marshal.GetLastWin32Error();
+        _log($"MouseMoveAbsolute({x}, {y}) normalized=({normalizedX}, {normalizedY}) SendInput => sent={sent}, error={error}");
+    }
+
+    private static int NormalizeAbsoluteCoordinate(int value, int origin, int size)
+    {
+        if (size <= 1)
+        {
+            return 0;
+        }
+
+        return (int)Math.Round((value - origin) * 65535.0 / (size - 1));
+    }
+
+    private void SendKeyboard(ushort virtualKey, KeyEventFlags flags, string label)
     {
         var input = new INPUT
         {
@@ -78,7 +120,9 @@ public sealed class InputController
             },
         };
 
-        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var sent = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var error = Marshal.GetLastWin32Error();
+        _log($"{label} SendInput(vk=0x{virtualKey:X2}) => sent={sent}, error={error}");
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -99,8 +143,11 @@ public sealed class InputController
     [Flags]
     private enum MouseEventFlags : uint
     {
+        Move = 0x0001,
         LeftDown = 0x0002,
         LeftUp = 0x0004,
+        Absolute = 0x8000,
+        VirtualDesk = 0x4000,
     }
 
     [Flags]

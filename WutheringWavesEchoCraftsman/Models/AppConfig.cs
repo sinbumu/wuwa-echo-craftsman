@@ -17,6 +17,14 @@ public sealed class AppConfig
 
     public int RequiredValidSubstatCount { get; set; } = 2;
 
+    public int TargetOptimizeCount { get; set; } = 1;
+
+    public int StartDelaySeconds { get; set; } = 3;
+
+    public int ActionDelayMs { get; set; } = 800;
+
+    public int CompletionOverlayDelayMs { get; set; } = 1800;
+
     public Dictionary<string, RegionRect> Regions { get; set; } = CreateDefaultRegions();
 
     public Dictionary<string, string> Assets { get; set; } = CreateDefaultAssets();
@@ -54,6 +62,9 @@ public static class CalibrationTargets
         "roi_exp_material_3",
         "roi_exp_material_4",
         "roi_substat",
+        "roi_optimize_count",
+        "roi_optimize_minus",
+        "roi_optimize_plus",
         "roi_optimize_confirm",
         "roi_optimize_complete_close",
     ];

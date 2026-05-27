@@ -54,16 +54,16 @@ WutheringWavesEchoCraftsman.sln
 
 ### 5.2. 오버레이 캘리브레이션 UX
 1. 메인 화면의 **[초기 설정 시작]** 버튼은 일회성 마법사가 아니라 **초기 설정 관리 창**을 연다.
-2. 초기 설정 관리 창은 17개 캘리브레이션 항목의 현재 저장 상태(미설정/저장됨), ROI 좌표, asset 파일 경로를 표로 보여준다.
+2. 초기 설정 관리 창은 20개 캘리브레이션 항목의 현재 저장 상태(미설정/저장됨), ROI 좌표, asset 파일 경로를 표로 보여준다.
 3. 사용자는 전체를 다시 할 필요 없이 **선택 항목만 다시 캡처**, **선택한 화면 단계 전체 다시 캡처**, **전체 순차 캘리브레이션** 중 하나를 실행할 수 있다.
 4. 캘리브레이션 캡처는 **4단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
 5. 각 단계 시작 전 WPF 안내 팝업으로 사용자가 어떤 인게임 화면을 준비해야 하는지 구체적으로 설명한다.
 6. 드래그(RubberBand)를 통해 영역 지정.
-7. **수집 타겟 (총 17종):**
+7. **수집 타겟 (총 20종):**
    - **[1/4 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `roi_enhance_tab`
    - **[2/4 에코 강화 기본 화면]:** `roi_expected_level`(강화 후 예상 레벨 OCR), `roi_slot_plus`, `roi_enhance_confirm`, `roi_enhance_complete_close`, `roi_optimize_tab`
    - **[3/4 에코 강화 재료 리스트 화면]:** 강화 화면에서 재료 슬롯/투입 영역을 클릭해 우측 재료 목록을 연 뒤 `roi_material`, `icon_discard.png`, `roi_exp_material_1`~`roi_exp_material_4`
-   - **[4/4 에코 옵티마이즈 화면]:** `roi_substat`, `roi_optimize_confirm`, `roi_optimize_complete_close`
+   - **[4/4 에코 옵티마이즈 화면]:** `roi_substat`, `roi_optimize_count`, `roi_optimize_minus`, `roi_optimize_plus`, `roi_optimize_confirm`, `roi_optimize_complete_close`
 
 ### 5.3. 부옵션 필터링 및 OCR 정규화
 - **정규화:** WinRT OCR 결과에서 공백/특수문자 제거 후 13종 표준 명칭으로 치환.
@@ -72,8 +72,8 @@ WutheringWavesEchoCraftsman.sln
 ### 5.4. 자동화 상태 머신 (Task-Driven State Machine)
 - **상태 머신은 각 루프 시작 시 GUI에서 설정한 `remainingCount`를 확인하고, 0 이하이면 정상 종료한다.**
 - **SEARCH:** `roi_list`에서 `template_plus_zero.png` 매칭 -> 매칭 좌표 클릭 -> `roi_enhance_tab` 중앙 클릭. (매칭 실패 시 **정상 종료**)
-- **ENHANCE:** `roi_expected_level` OCR 판독. 목표 레벨 이상이면 `roi_enhance_confirm` 중앙 클릭 -> 잠시 대기 -> 강화 완료 오버레이를 `roi_enhance_complete_close` 중앙 클릭으로 닫고 OPTIMIZE 이동. 미달 시 `roi_slot_plus` 중앙 클릭 -> `roi_material`에서 `icon_discard` 탐색/클릭, 없으면 `roi_exp_material_1`~`roi_exp_material_4` 중 설정된 음파통 영역을 순차 중앙 클릭 -> 딜레이 후 루프. (재료 소진 시 **비상 종료**)
-- **OPTIMIZE:** `roi_optimize_tab` 중앙 클릭. 이후 `roi_optimize_confirm` 중앙 클릭 -> 잠시 대기 -> 옵티마이즈 완료 오버레이를 `roi_optimize_complete_close` 중앙 클릭으로 닫고 `roi_substat` OCR 결과 갱신을 완료 조건으로 삼아 개방 로직을 수행.
+- **ENHANCE:** +0 에코 전제이므로 먼저 `roi_slot_plus` 중앙 클릭 -> `roi_material`에서 `icon_discard` 탐색/클릭, 없으면 `roi_exp_material_1`~`roi_exp_material_4` 중 설정된 음파통 영역을 순차 중앙 클릭 -> `roi_expected_level` OCR 판독. 목표 레벨 이상이면 `roi_enhance_confirm` 중앙 클릭 -> 잠시 대기 -> 강화 완료 오버레이를 `roi_enhance_complete_close` 중앙 클릭으로 닫고 OPTIMIZE 이동. 재료 클릭 5회 이상에도 예상 레벨이 증가하지 않으면 오류 기록 후 정지.
+- **OPTIMIZE:** `roi_optimize_tab` 중앙 클릭 -> `roi_optimize_count` OCR 판독 -> 목표 옵티마이즈 횟수에 맞도록 `roi_optimize_minus`/`roi_optimize_plus` 중앙 클릭 반복 -> 목표 횟수 확인 후 `roi_optimize_confirm` 중앙 클릭 -> 잠시 대기 -> 옵티마이즈 완료 오버레이를 `roi_optimize_complete_close` 중앙 클릭으로 닫고 `roi_substat` OCR 결과 갱신을 완료 조건으로 삼아 개방 로직을 수행. 일정 횟수 안에 목표 시행 횟수를 맞추지 못하면 오류 기록 후 정지.
 - **EVALUATE:** `roi_substat` OCR 검증 -> 필터 조건 판별 -> 잠금/폐기.
 - **RETURN:** `ESC` 입력으로 에코 리스트 복귀. `remainingCount` 차감 후 SEARCH 재진입.
 
@@ -84,3 +84,4 @@ WutheringWavesEchoCraftsman.sln
    - Win32 `SendInput`을 통한 인게임 클릭/키보드 이벤트 정상 수신 여부.
 2. **Threading Model:** `Task.Run`을 이용해 UI 스레드와 매크로 스레드를 철저히 분리.
 3. **Safe Packaging:** 런타임 오류 방지를 위해 초기 배포는 `PublishTrimmed=true`를 배제하고 `Self-Contained` 및 `PublishSingleFile=true` 조합으로 안정성을 우선 확보할 것.
+4. **Input Compatibility:** 마우스 이동은 `SendInput`의 absolute/virtual desktop 좌표 이동 이벤트로 보내고, 클릭 down/up 사이에는 최소 50ms 수준의 지연을 둔다. 앱은 `requireAdministrator` manifest로 실행 권한을 맞춘다.
