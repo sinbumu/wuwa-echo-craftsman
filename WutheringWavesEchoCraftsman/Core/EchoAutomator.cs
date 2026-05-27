@@ -98,31 +98,33 @@ public sealed class EchoAutomator
             await ClickRegionAsync("roi_slot_plus", cancellationToken);
 
             var materialClicksThisAttempt = 0;
-            var usedDiscardThisAttempt = false;
 
             if (_config.UseDiscardEchoMaterials)
             {
                 var materialRegion = _config.Regions["roi_material"];
                 using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
-                var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
+                var discards = FindAssets(materialCapture, "icon_discard.png", 0.80);
+                _log($"ENHANCE: 폐기 에코 후보 {discards.Count}개");
 
-                if (discard.Success)
+                foreach (var discard in discards)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
                     usedDiscardMaterial = true;
-                    usedDiscardThisAttempt = true;
-                    materialClicksThisAttempt = 1;
+                    materialClicksThisAttempt++;
                     await Task.Delay(ActionDelayMs, cancellationToken);
                 }
             }
 
-            if (!usedDiscardThisAttempt)
-            {
-                materialClicksThisAttempt = await ClickExpMaterialsBatchAsync(cancellationToken);
-            }
-
             var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
-            _log($"ENHANCE: 강화 후 예상 레벨 판독={expectedLevel}");
+            _log($"ENHANCE: 폐기 에코 선택 후 예상 레벨 판독={expectedLevel}");
+
+            if (expectedLevel < _config.TargetLevel)
+            {
+                materialClicksThisAttempt += await ClickExpMaterialsBatchAsync(cancellationToken);
+                expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+                _log($"ENHANCE: 음파통 투입 후 예상 레벨 판독={expectedLevel}");
+            }
 
             if (expectedLevel > previousExpectedLevel)
             {
