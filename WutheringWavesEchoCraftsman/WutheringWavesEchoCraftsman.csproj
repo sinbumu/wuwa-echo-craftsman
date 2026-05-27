@@ -13,6 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="..\asset\app_icon.png" Link="asset\app_icon.png" />
+    <Resource Include="..\asset\splash_image.png" Link="asset\splash_image.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
     <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260427" />
     <PackageReference Include="OpenCvSharp4.Extensions" Version="4.13.0.20260427" />

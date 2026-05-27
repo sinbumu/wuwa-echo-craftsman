@@ -7,6 +7,7 @@
         Title="Wuwa Echo Craftsman"
         Height="760"
         Width="1040"
+        Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
         Closing="Window_Closing"

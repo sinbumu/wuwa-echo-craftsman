@@ -4,6 +4,7 @@
         Title="부옵션 설정"
         Height="640"
         Width="760"
+        Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">

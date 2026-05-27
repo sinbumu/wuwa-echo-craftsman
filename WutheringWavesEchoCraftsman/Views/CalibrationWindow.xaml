@@ -4,6 +4,7 @@
         Title="자동화 설정 관리"
         Height="620"
         Width="1040"
+        Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">

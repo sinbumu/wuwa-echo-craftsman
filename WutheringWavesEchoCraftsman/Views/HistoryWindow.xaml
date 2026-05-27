@@ -4,6 +4,7 @@
         Title="히스토리"
         Height="480"
         Width="760"
+        Icon="pack://application:,,,/asset/app_icon.png"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">
