@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing tag to publish, e.g. v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: windows-latest
+
+    env:
+      PROJECT_PATH: WutheringWavesEchoCraftsman/WutheringWavesEchoCraftsman.csproj
+      PUBLISH_DIR: artifacts/publish/win-x64
+      RELEASE_NAME: wuwa-echo-craftsman-win-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore $env:PROJECT_PATH
+
+      - name: Publish win-x64 single-file
+        run: >
+          dotnet publish $env:PROJECT_PATH
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishReadyToRun=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:PublishTrimmed=false
+          --output $env:PUBLISH_DIR
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.tag_name }}" } else { "${{ github.ref_name }}" }
+          $zipPath = "artifacts/$env:RELEASE_NAME-$tag.zip"
+          Compress-Archive -Path "$env:PUBLISH_DIR/*" -DestinationPath $zipPath -Force
+          "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          "RELEASE_ZIP=$zipPath" >> $env:GITHUB_ENV
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RELEASE_NAME }}-${{ env.RELEASE_TAG }}
+          path: ${{ env.RELEASE_ZIP }}
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:RELEASE_TAG $env:RELEASE_ZIP `
+            --verify-tag `
+            --title $env:RELEASE_TAG `
+            --notes "Windows x64 portable release. Run WutheringWavesEchoCraftsman.exe after extracting the zip."

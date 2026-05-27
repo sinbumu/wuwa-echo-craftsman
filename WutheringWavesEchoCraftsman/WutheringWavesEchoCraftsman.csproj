@@ -10,9 +10,16 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>..\asset\app_icon.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\asset\app_icon.ico" Link="asset\app_icon.ico" />
     <Resource Include="..\asset\app_icon.png" Link="asset\app_icon.png" />
     <Resource Include="..\asset\splash_image.png" Link="asset\splash_image.png" />
   </ItemGroup>
