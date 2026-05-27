@@ -113,6 +113,8 @@ flowchart TD
 5. 폐기 에코가 없으면 `roi_exp_material_1`~`roi_exp_material_4` 중 설정된 음파통 영역을 순서대로 클릭한다.
 6. 재료가 들어간 뒤 `roi_expected_level`을 OCR로 읽는다.
 7. 예상 레벨이 목표 레벨 이상이면:
+   - `ESC`를 1회 입력해 재료 선택장을 닫는다.
+   - 짧게 대기한다.
    - `roi_enhance_confirm` 중앙을 클릭한다.
    - 잠시 대기한다.
    - `roi_enhance_complete_close` 중앙을 클릭해 강화 완료 오버레이를 닫는다.

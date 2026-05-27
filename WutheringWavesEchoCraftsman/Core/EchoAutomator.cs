@@ -133,6 +133,9 @@ public sealed class EchoAutomator
 
             if (expectedLevel >= _config.TargetLevel)
             {
+                _inputController.PressKey(VirtualKeys.Escape);
+                _log("ENHANCE: 재료 선택장 닫기 ESC 입력");
+                await Task.Delay(ActionDelayMs, cancellationToken);
                 await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
                 await CloseCompletionOverlayAsync("roi_enhance_complete_close", "ENHANCE", cancellationToken);
                 return;
