@@ -46,6 +46,11 @@ public partial class MainWindow : Window
         if (System.Windows.Application.Current.ShutdownMode != ShutdownMode.OnExplicitShutdown)
         {
             e.Cancel = true;
+            foreach (Window window in System.Windows.Application.Current.Windows.Cast<Window>().Where(window => window != this).ToArray())
+            {
+                window.Close();
+            }
+
             Hide();
             AppendLog("창을 닫지 않고 트레이로 숨겼습니다.");
         }
