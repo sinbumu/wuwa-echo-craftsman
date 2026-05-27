@@ -98,6 +98,8 @@ public sealed class EchoAutomator
             await ClickRegionAsync("roi_slot_plus", cancellationToken);
 
             var materialClicksThisAttempt = 0;
+            var usedDiscardThisAttempt = false;
+            var expectedLevel = previousExpectedLevel;
 
             if (_config.UseDiscardEchoMaterials)
             {
@@ -111,19 +113,33 @@ public sealed class EchoAutomator
                     cancellationToken.ThrowIfCancellationRequested();
                     _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
                     usedDiscardMaterial = true;
+                    usedDiscardThisAttempt = true;
                     materialClicksThisAttempt++;
                     await Task.Delay(ActionDelayMs, cancellationToken);
+
+                    expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+                    _log($"ENHANCE: 폐기 에코 {materialClicksThisAttempt}/{discards.Count} 선택 후 예상 레벨 판독={expectedLevel}");
+                    if (expectedLevel >= _config.TargetLevel)
+                    {
+                        break;
+                    }
                 }
             }
 
-            var expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
-            _log($"ENHANCE: 폐기 에코 선택 후 예상 레벨 판독={expectedLevel}");
-
             if (expectedLevel < _config.TargetLevel)
             {
-                materialClicksThisAttempt += await ClickExpMaterialsBatchAsync(cancellationToken);
-                expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
-                _log($"ENHANCE: 음파통 투입 후 예상 레벨 판독={expectedLevel}");
+                if (usedDiscardThisAttempt)
+                {
+                    var expResult = await ClickExpMaterialsUntilTargetAsync(cancellationToken);
+                    materialClicksThisAttempt += expResult.ClickCount;
+                    expectedLevel = expResult.ExpectedLevel;
+                }
+                else
+                {
+                    materialClicksThisAttempt += await ClickExpMaterialsBatchAsync(cancellationToken);
+                    expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+                    _log($"ENHANCE: 음파통 투입 후 예상 레벨 판독={expectedLevel}");
+                }
             }
 
             if (expectedLevel > previousExpectedLevel)
@@ -339,6 +355,35 @@ public sealed class EchoAutomator
         }
 
         return clickCount;
+    }
+
+    private async Task<(int ClickCount, int ExpectedLevel)> ClickExpMaterialsUntilTargetAsync(CancellationToken cancellationToken)
+    {
+        var expRegions = GetConfiguredExpMaterialRegions();
+        if (expRegions.Count == 0)
+        {
+            throw new InvalidOperationException("재료 소진: 폐기 에코를 사용했지만 목표 레벨에 도달하지 못했고 음파통 영역도 설정되지 않았습니다.");
+        }
+
+        var clickLimit = GetSuggestedExpMaterialClickCount(_config.TargetLevel);
+        var expectedLevel = 0;
+        for (var index = 0; index < clickLimit; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var expRegion = expRegions[index % expRegions.Count];
+            ClickRegion(expRegion);
+            await Task.Delay(ActionDelayMs, cancellationToken);
+
+            expectedLevel = await ReadExpectedLevelAsync(cancellationToken);
+            _log($"ENHANCE: 폐기 에코 후 음파통 {index + 1}/{clickLimit} 클릭, 예상 레벨 판독={expectedLevel}");
+            if (expectedLevel >= _config.TargetLevel)
+            {
+                return (index + 1, expectedLevel);
+            }
+        }
+
+        return (clickLimit, expectedLevel);
     }
 
     private static int GetSuggestedExpMaterialClickCount(int targetLevel)
