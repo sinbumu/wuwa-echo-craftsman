@@ -75,7 +75,7 @@ function Publish-GitHubRelease {
     param([string]$ReleaseTag)
 
     if ([string]::IsNullOrWhiteSpace($ReleaseTag) -or $ReleaseTag -eq "local") {
-        throw "release 작업에는 TAG가 필요합니다. 예: make release TAG=v1.0.0"
+        throw "release 작업에는 Tag가 필요합니다. 예: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task release -Tag v1.0.0"
     }
 
     Test-GhCli

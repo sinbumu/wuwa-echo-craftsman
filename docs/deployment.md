@@ -7,15 +7,6 @@
 ## 빠른 명령
 
 ```powershell
-make build
-make publish
-make package TAG=v1.0.0
-make release TAG=v1.0.0
-```
-
-`make`가 없는 환경에서는 PowerShell 스크립트를 직접 실행한다.
-
-```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task build
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task publish
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task package -Tag v1.0.0
@@ -65,7 +56,7 @@ gh auth login
 릴리스 실행:
 
 ```powershell
-make release TAG=v1.0.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task release -Tag v1.0.0
 ```
 
 동작:
@@ -79,8 +70,8 @@ make release TAG=v1.0.0
 ## Release 전 확인
 
 - `dotnet build WutheringWavesEchoCraftsman.sln` 성공
-- `make publish` 성공
-- `make package TAG=v1.0.0` 성공
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task publish` 성공
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Task package -Tag v1.0.0` 성공
 - publish 결과물의 `WutheringWavesEchoCraftsman.exe` 실행 확인
 - 최초 실행 시 `data/`, `data/assets/`, `data/config.json`, `data/history.sqlite3` 생성 확인
 - Release zip에 `data/history.sqlite3`가 포함되지 않았는지 확인
