@@ -3,11 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="자동화 설정 관리"
         Height="620"
-        Width="1040">
+        Width="1040"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">
         <TextBlock DockPanel.Dock="Top"
                    Text="자동화에 필요한 좌표와 이미지 에셋의 저장 상태를 확인하고, 잘못 지정한 항목만 개별로 다시 캡처할 수 있습니다."
                    TextWrapping="Wrap"
+                   Foreground="{DynamicResource PrimaryTextBrush}"
                    Margin="0,0,0,10" />
 
         <StackPanel DockPanel.Dock="Bottom"
@@ -38,7 +41,24 @@
         <DataGrid x:Name="CalibrationDataGrid"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
+                  Background="{DynamicResource CardBackgroundBrush}"
+                  Foreground="{DynamicResource PrimaryTextBrush}"
+                  BorderBrush="{DynamicResource CardBorderBrush}"
+                  RowBackground="{DynamicResource CardBackgroundBrush}"
+                  AlternatingRowBackground="{DynamicResource AppBackgroundBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource CardBorderBrush}"
+                  VerticalGridLinesBrush="{DynamicResource CardBorderBrush}"
                   SelectionMode="Single">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type TextBlock}">
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                </Style>
+                <Style TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="화면 단계" Binding="{Binding ScreenTitle}" Width="180" />
                 <DataGridTextColumn Header="항목" Binding="{Binding Title}" Width="170" />

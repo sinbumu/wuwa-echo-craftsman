@@ -3,17 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="부옵션 설정"
         Height="640"
-        Width="760">
+        Width="760"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <TextBlock Text="옵티마이즈 이후 잠금/폐기 판정에 사용할 부옵션 조건을 설정합니다."
                        TextWrapping="Wrap"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
                        Margin="0,0,0,10" />
-            <TextBlock Text="잠금을 위한 최소 유효 부옵션 개수" />
+            <TextBlock Text="잠금을 위한 최소 유효 부옵션 개수"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
             <TextBox x:Name="RequiredCountTextBox" Width="120" HorizontalAlignment="Left" Margin="0,2,0,8" />
             <TextBlock Text="필수는 반드시 포함되어야 하는 옵션입니다. 필수 체크 시 사용도 자동 체크되며, 필수 상태에서는 사용을 끌 수 없습니다. 최소 수치는 비워두면 해당 부옵션의 최저값을 사용합니다."
                        TextWrapping="Wrap"
-                       Foreground="DimGray" />
+                       Foreground="{DynamicResource SecondaryTextBrush}" />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom"
@@ -33,7 +37,24 @@
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
+                  Background="{DynamicResource CardBackgroundBrush}"
+                  Foreground="{DynamicResource PrimaryTextBrush}"
+                  BorderBrush="{DynamicResource CardBorderBrush}"
+                  RowBackground="{DynamicResource CardBackgroundBrush}"
+                  AlternatingRowBackground="{DynamicResource AppBackgroundBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource CardBorderBrush}"
+                  VerticalGridLinesBrush="{DynamicResource CardBorderBrush}"
                   CellEditEnding="SubstatDataGrid_CellEditEnding">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type TextBlock}">
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                </Style>
+                <Style TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="사용" Binding="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />
                 <DataGridCheckBoxColumn Header="필수" Binding="{Binding Required, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="60" />

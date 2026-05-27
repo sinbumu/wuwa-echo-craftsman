@@ -3,7 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="히스토리"
         Height="480"
-        Width="760">
+        Width="760"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="12">
         <Button DockPanel.Dock="Top"
                 Content="새로고침"
@@ -13,7 +15,24 @@
                 Click="Refresh_Click" />
         <DataGrid x:Name="HistoryDataGrid"
                   AutoGenerateColumns="False"
-                  IsReadOnly="True">
+                  IsReadOnly="True"
+                  Background="{DynamicResource CardBackgroundBrush}"
+                  Foreground="{DynamicResource PrimaryTextBrush}"
+                  BorderBrush="{DynamicResource CardBorderBrush}"
+                  RowBackground="{DynamicResource CardBackgroundBrush}"
+                  AlternatingRowBackground="{DynamicResource AppBackgroundBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource CardBorderBrush}"
+                  VerticalGridLinesBrush="{DynamicResource CardBorderBrush}">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type TextBlock}">
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                </Style>
+                <Style TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60" />
                 <DataGridTextColumn Header="시간" Binding="{Binding CreatedAt}" Width="180" />
