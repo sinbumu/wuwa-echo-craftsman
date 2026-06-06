@@ -39,6 +39,14 @@ public partial class AutomationOverlayWindow : Window
         });
     }
 
+    public void UpdateLevel(int? level)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            CurrentLevelTextBlock.Text = level.HasValue ? $"+{level.Value}" : "미인식";
+        });
+    }
+
     public void AddHistory(string text)
     {
         Dispatcher.BeginInvoke(() =>
@@ -59,6 +67,7 @@ public partial class AutomationOverlayWindow : Window
         {
             _substats.Clear();
             _history.Clear();
+            CurrentLevelTextBlock.Text = "미인식";
             EmptySubstatTextBlock.Visibility = Visibility.Visible;
             EmptyHistoryTextBlock.Visibility = Visibility.Visible;
             PositionOnRightMiddle();

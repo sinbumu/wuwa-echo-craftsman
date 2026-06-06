@@ -15,6 +15,7 @@ public sealed class EchoAutomator
     private readonly InputController _inputController;
     private readonly DatabaseService _databaseService;
     private readonly Action<string> _log;
+    private readonly Action<int?>? _updateOverlayLevel;
     private readonly Action<IReadOnlyList<ParsedSubstat>>? _updateOverlaySubstats;
     private readonly Action<string>? _addOverlayHistory;
     private int _processedCount;
@@ -27,6 +28,7 @@ public sealed class EchoAutomator
         InputController inputController,
         DatabaseService databaseService,
         Action<string> log,
+        Action<int?>? updateOverlayLevel = null,
         Action<IReadOnlyList<ParsedSubstat>>? updateOverlaySubstats = null,
         Action<string>? addOverlayHistory = null)
     {
@@ -37,6 +39,7 @@ public sealed class EchoAutomator
         _inputController = inputController;
         _databaseService = databaseService;
         _log = log;
+        _updateOverlayLevel = updateOverlayLevel;
         _updateOverlaySubstats = updateOverlaySubstats;
         _addOverlayHistory = addOverlayHistory;
     }
@@ -216,11 +219,13 @@ public sealed class EchoAutomator
             if (level.HasValue)
             {
                 _log($"STAGED_ENHANCE: 현재 레벨 OCR 성공 후보=#{index + 1}, 원문='{text.ReplaceLineEndings(" ")}', 판독=+{level.Value}");
+                _updateOverlayLevel?.Invoke(level);
                 return level;
             }
         }
 
         _log($"STAGED_ENHANCE: 현재 레벨 OCR 실패, ROI=({levelRegion.X},{levelRegion.Y},{levelRegion.Width},{levelRegion.Height}), 후보 원문={string.Join(", ", attempts)}");
+        _updateOverlayLevel?.Invoke(null);
         return null;
     }
 

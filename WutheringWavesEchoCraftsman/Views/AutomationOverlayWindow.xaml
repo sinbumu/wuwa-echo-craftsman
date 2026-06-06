@@ -32,12 +32,39 @@
                             Background="#334B5563"
                             BorderBrush="#667C83FF"
                             Click="CloseButton_Click" />
-                    <TextBlock Text="현재 식별된 부옵션 목록"
+                    <TextBlock Text="현재 식별된 에코 정보"
                                Foreground="White"
                                FontSize="15"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center" />
                 </DockPanel>
+                <Border Padding="12"
+                        Margin="0,0,0,12"
+                        CornerRadius="10"
+                        Background="#3320283A"
+                        BorderBrush="#445B5FC7"
+                        BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="현재 레벨"
+                                   Foreground="#FFD1D5DB"
+                                   FontSize="13" />
+                        <TextBlock x:Name="CurrentLevelTextBlock"
+                                   Grid.Column="1"
+                                   Text="미인식"
+                                   Foreground="#FFA5B4FC"
+                                   FontSize="14"
+                                   FontWeight="SemiBold" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="식별된 부옵션"
+                           Foreground="#FFD1D5DB"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8" />
                 <ItemsControl x:Name="SubstatItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>

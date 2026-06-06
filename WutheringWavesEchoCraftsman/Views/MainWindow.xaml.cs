@@ -649,6 +649,7 @@ public partial class MainWindow : Window
                 input,
                 _databaseService,
                 AppendLog,
+                _automationOverlay.UpdateLevel,
                 _automationOverlay.UpdateSubstats,
                 _automationOverlay.AddHistory);
 
