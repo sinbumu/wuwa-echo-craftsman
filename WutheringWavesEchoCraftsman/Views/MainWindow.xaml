@@ -96,6 +96,15 @@
             <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
         </Style>
 
+        <Style x:Key="ReadOnlyInputTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource InputTextBoxStyle}">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Setter Property="Background" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+
         <Style x:Key="ToolButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostActionButtonStyle}">
             <Setter Property="Height" Value="38" />
             <Setter Property="FontSize" Value="12" />
@@ -189,7 +198,7 @@
                     <Border Style="{StaticResource CardBorderStyle}">
                         <StackPanel>
                             <TextBlock Text="자동화 설정" Style="{StaticResource SectionTitleTextStyle}" />
-                            <TextBlock Text="자주 바꾸는 기본 실행 파라미터입니다." Style="{StaticResource SectionCaptionTextStyle}" />
+                            <TextBlock Text="옵티마이즈 최대 시행 횟수만 지정하면 목표 레벨은 자동 계산됩니다." Style="{StaticResource SectionCaptionTextStyle}" />
 
                             <CheckBox x:Name="DarkModeCheckBox"
                                       Content="다크 모드"
@@ -198,13 +207,19 @@
                                       Margin="0,0,0,18" />
 
                             <TextBlock Text="목표 레벨" Style="{StaticResource FieldLabelTextStyle}" />
-                            <TextBox x:Name="TargetLevelTextBox" Text="5" Style="{StaticResource InputTextBoxStyle}" />
+                            <TextBox x:Name="TargetLevelTextBox"
+                                     Text="5"
+                                     Style="{StaticResource ReadOnlyInputTextBoxStyle}" />
 
                             <TextBlock Text="반복 횟수" Style="{StaticResource FieldLabelTextStyle}" />
                             <TextBox x:Name="RemainingCountTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" />
 
-                            <TextBlock Text="옵티마이즈 시행 횟수" Style="{StaticResource FieldLabelTextStyle}" />
-                            <TextBox x:Name="OptimizeCountTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" Margin="0" />
+                            <TextBlock Text="옵티마이즈 최대 시행 횟수(1~5)" Style="{StaticResource FieldLabelTextStyle}" />
+                            <TextBox x:Name="OptimizeCountTextBox"
+                                     Text="1"
+                                     TextChanged="OptimizeCountTextBox_TextChanged"
+                                     Style="{StaticResource InputTextBoxStyle}"
+                                     Margin="0" />
                         </StackPanel>
                     </Border>
 
@@ -231,19 +246,36 @@
                                 <TextBlock Text="완료 오버레이 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
                                 <TextBox x:Name="CompletionDelayTextBox" Text="1800" Style="{StaticResource InputTextBoxStyle}" />
 
-                                <TextBlock Text="사용할 음파통 영역 수(1~4)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="ExpMaterialSlotsTextBox" Text="1" Style="{StaticResource InputTextBoxStyle}" />
+                                <TextBlock Text="사용할 음파통 영역 수(1~4)"
+                                           Style="{StaticResource FieldLabelTextStyle}"
+                                           Visibility="Collapsed" />
+                                <TextBox x:Name="ExpMaterialSlotsTextBox"
+                                         Text="1"
+                                         Style="{StaticResource InputTextBoxStyle}"
+                                         Visibility="Collapsed" />
 
                                 <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
                                           Content="폐기 에코 강화재료로 사용"
                                           IsChecked="True"
-                                          Margin="0,2,0,16" />
+                                          Margin="0,2,0,16"
+                                          Visibility="Collapsed" />
 
-                                <TextBlock Text="음파통 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="ExpMaterialDelayTextBox" Text="150" Style="{StaticResource InputTextBoxStyle}" />
+                                <TextBlock Text="음파통 클릭 후 대기(ms)"
+                                           Style="{StaticResource FieldLabelTextStyle}"
+                                           Visibility="Collapsed" />
+                                <TextBox x:Name="ExpMaterialDelayTextBox"
+                                         Text="150"
+                                         Style="{StaticResource InputTextBoxStyle}"
+                                         Visibility="Collapsed" />
 
-                                <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
-                                <TextBox x:Name="OptimizeCountDelayTextBox" Text="150" Style="{StaticResource InputTextBoxStyle}" Margin="0" />
+                                <TextBlock Text="옵티마이즈 +/- 클릭 후 대기(ms)"
+                                           Style="{StaticResource FieldLabelTextStyle}"
+                                           Visibility="Collapsed" />
+                                <TextBox x:Name="OptimizeCountDelayTextBox"
+                                         Text="150"
+                                         Style="{StaticResource InputTextBoxStyle}"
+                                         Margin="0"
+                                         Visibility="Collapsed" />
                             </StackPanel>
                         </Expander>
                     </Border>
@@ -262,9 +294,8 @@
                                 <Button Content="PoC: 드래그 영역 OCR 원문" Click="FreeformOcrPoc_Click" Style="{StaticResource ToolButtonStyle}" />
                                 <Button Content="PoC: 입력 테스트" Click="InputPoc_Click" Style="{StaticResource ToolButtonStyle}" />
                                 <Button Content="단계 테스트: SEARCH" Click="TestSearch_Click" Style="{StaticResource ToolButtonStyle}" />
-                                <Button Content="단계 테스트: 재료 1회 투입" Click="TestMaterial_Click" Style="{StaticResource ToolButtonStyle}" />
-                                <Button Content="단계 테스트: 예상 레벨 OCR" Click="TestExpectedLevel_Click" Style="{StaticResource ToolButtonStyle}" />
-                                <Button Content="단계 테스트: 옵티 횟수 OCR" Click="TestOptimizeCount_Click" Style="{StaticResource ToolButtonStyle}" Margin="0" />
+                                <Button Content="단계 테스트: 단계별 투입 1회" Click="TestMaterial_Click" Style="{StaticResource ToolButtonStyle}" />
+                                <Button Content="단계 테스트: 부옵션 OCR" Click="TestExpectedLevel_Click" Style="{StaticResource ToolButtonStyle}" Margin="0" />
                             </StackPanel>
                         </Expander>
                     </Border>

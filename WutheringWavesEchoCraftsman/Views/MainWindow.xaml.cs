@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
 using Media = System.Windows.Media;
@@ -74,6 +73,7 @@ public partial class MainWindow : Window
 
     private void LoadConfigToUi()
     {
+        SyncTargetLevelFromOptimizeCount();
         DryRunCheckBox.IsChecked = _config.DryRun;
         DarkModeCheckBox.IsChecked = _config.DarkMode;
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
@@ -92,9 +92,11 @@ public partial class MainWindow : Window
     {
         _config.DryRun = DryRunCheckBox.IsChecked == true;
         _config.DarkMode = DarkModeCheckBox.IsChecked == true;
-        _config.TargetLevel = ParseInt(TargetLevelTextBox.Text, 5);
         _config.RemainingCount = ParseInt(RemainingCountTextBox.Text, 1);
-        _config.TargetOptimizeCount = ParseInt(OptimizeCountTextBox.Text, 1);
+        _config.TargetOptimizeCount = Math.Clamp(ParseInt(OptimizeCountTextBox.Text, 1), 1, 5);
+        _config.TargetLevel = _config.TargetOptimizeCount * 5;
+        TargetLevelTextBox.Text = _config.TargetLevel.ToString();
+        OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
         _config.StartDelaySeconds = Math.Max(0, ParseInt(StartDelayTextBox.Text, 3));
         _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
         _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));
@@ -113,6 +115,28 @@ public partial class MainWindow : Window
 
         _calibrationManager.Save(_config);
         ApplyTheme(_config.DarkMode);
+    }
+
+    private void SyncTargetLevelFromOptimizeCount()
+    {
+        _config.TargetOptimizeCount = Math.Clamp(_config.TargetOptimizeCount, 1, 5);
+        _config.TargetLevel = _config.TargetOptimizeCount * 5;
+    }
+
+    private void OptimizeCountTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (TargetLevelTextBox is null)
+        {
+            return;
+        }
+
+        var optimizeCount = Math.Clamp(ParseInt(OptimizeCountTextBox.Text, 1), 1, 5);
+        var targetLevel = optimizeCount * 5;
+        var targetLevelText = targetLevel.ToString();
+        if (!string.Equals(TargetLevelTextBox.Text, targetLevelText, StringComparison.Ordinal))
+        {
+            TargetLevelTextBox.Text = targetLevelText;
+        }
     }
 
     private void DarkModeCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -348,7 +372,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            using var capture = _config.Regions.TryGetValue("roi_expected_level", out var region) && !region.IsEmpty
+            using var capture = _config.Regions.TryGetValue("roi_substat", out var region) && !region.IsEmpty
                 ? _screenCapturer.CaptureRegion(region)
                 : _screenCapturer.CaptureVirtualScreen();
 
@@ -378,7 +402,7 @@ public partial class MainWindow : Window
                 "poc_freeform_ocr",
                 "임의 OCR 테스트 영역",
                 CalibrationStepKind.Region,
-                CalibrationScreen.Optimize,
+                CalibrationScreen.Enhance,
                 "OCR 원문을 확인할 영역을 드래그하세요. 저장하지 않고 로그에만 출력합니다.");
             var result = await CalibrationOverlay.CaptureAsync(screenshot, step);
             if (result is null)
@@ -432,53 +456,24 @@ public partial class MainWindow : Window
 
     private async void TestMaterial_Click(object sender, RoutedEventArgs e)
     {
-        await RunStepTestAsync("재료 1회 투입", async input =>
+        await RunStepTestAsync("단계별 투입 1회", async input =>
         {
-            ClickRegion(input, "roi_slot_plus");
+            ClickRegion(input, "roi_staged_auto_input");
             await Task.Delay(_config.ActionDelayMs);
-
-            var materialRegion = _config.Regions["roi_material"];
-            using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
-            var discard = FindAsset(materialCapture, "icon_discard.png", 0.80);
-            AppendLog($"TEST MATERIAL: 폐기 에코 confidence={discard.Confidence:0.000}");
-
-            if (discard.Success)
-            {
-                input.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
-                return;
-            }
-
-            var expRegion = Enumerable.Range(1, 4)
-                .Select(index => $"roi_exp_material_{index}")
-                .Take(Math.Clamp(_config.ExpMaterialSlotsToUse, 1, 4))
-                .Select(key => _config.Regions.TryGetValue(key, out var region) ? region : RegionRect.Empty)
-                .FirstOrDefault(region => !region.IsEmpty) ?? RegionRect.Empty;
-
-            if (expRegion.IsEmpty)
-            {
-                AppendLog("TEST MATERIAL: 설정된 음파통 영역이 없습니다.");
-                return;
-            }
-
-            input.Click(expRegion.X + expRegion.Width / 2, expRegion.Y + expRegion.Height / 2);
+            AppendLog("TEST STAGED: 단계별 투입 영역 클릭 완료");
         });
     }
 
     private async void TestExpectedLevel_Click(object sender, RoutedEventArgs e)
     {
-        await RunStepTestAsync("예상 레벨 OCR", async _ =>
+        await RunStepTestAsync("부옵션 OCR", async _ =>
         {
-            var level = await ReadNumberFromRegionAsync("roi_expected_level");
-            AppendLog($"TEST OCR: 강화 후 예상 레벨={level}");
-        });
-    }
-
-    private async void TestOptimizeCount_Click(object sender, RoutedEventArgs e)
-    {
-        await RunStepTestAsync("옵티 횟수 OCR", async _ =>
-        {
-            var count = await ReadNumberFromRegionAsync("roi_optimize_count", min: 1, max: 5);
-            AppendLog($"TEST OCR: 옵티마이즈 시행 횟수={count}");
+            var substatRegion = _config.Regions["roi_substat"];
+            using var capture = _screenCapturer.CaptureRegion(substatRegion);
+            using var processed = _visionProcessor.PreprocessForOcr(capture);
+            var text = await _visionProcessor.RecognizeTextAsync(processed);
+            var parsed = SubstatInfo.ParseLines(text);
+            AppendLog($"TEST OCR: 부옵션 {parsed.Count}개 인식{Environment.NewLine}{text}");
         });
     }
 
@@ -597,8 +592,6 @@ public partial class MainWindow : Window
         {
             CalibrationScreen.EchoList => "에코 목록 화면",
             CalibrationScreen.Enhance => "에코 강화 화면",
-            CalibrationScreen.MaterialList => "에코 강화 재료 리스트 화면",
-            CalibrationScreen.Optimize => "에코 옵티마이즈 화면",
             _ => "캘리브레이션 화면",
         };
     }
@@ -608,28 +601,16 @@ public partial class MainWindow : Window
         return screen switch
         {
             CalibrationScreen.EchoList =>
-                "1/4 에코 목록 화면을 준비하세요." + Environment.NewLine
+                "1/2 에코 목록 화면을 준비하세요." + Environment.NewLine
                 + "- 캐릭터 > 에코 탭의 에코 목록 화면으로 이동하세요." + Environment.NewLine
                 + "- 목표 세트/코스트 필터와 레벨 오름차순 정렬을 적용하세요." + Environment.NewLine
                 + "- +0 에코가 보이고, 에코 선택 시 육성 버튼이 보이는 상태가 좋습니다.",
 
             CalibrationScreen.Enhance =>
-                "2/4 에코 강화 기본 화면을 준비하세요." + Environment.NewLine
+                "2/2 에코 강화 화면을 준비하세요." + Environment.NewLine
                 + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
-                + "- 현재 레벨 텍스트가 보이게 하세요." + Environment.NewLine
-                + "- 아직 재료 슬롯 + 버튼은 누르지 마세요." + Environment.NewLine
-                + "- 현재 화면에서 재료 슬롯 + 버튼, 강화 버튼, 옵티마이즈/튜닝 탭 버튼이 보이는 상태로 준비하세요.",
-
-            CalibrationScreen.MaterialList =>
-                "3/4 에코 강화 재료 리스트 화면을 준비하세요." + Environment.NewLine
-                + "- 에코 강화 화면에서 재료 슬롯 + 버튼 또는 재료 투입 영역을 클릭하세요." + Environment.NewLine
-                + "- 우측에 강화 재료/강화된 에코 목록이 열린 상태로 준비하세요." + Environment.NewLine
-                + "- 폐기 에코 아이콘 또는 음파통 아이콘이 실제로 보이게 스크롤/필터를 맞춰두세요.",
-
-            CalibrationScreen.Optimize =>
-                "4/4 에코 옵티마이즈 화면을 준비하세요." + Environment.NewLine
-                + "- 강화 화면에서 옵티마이즈/튜닝 탭으로 이동하세요." + Environment.NewLine
-                + "- 부옵션 텍스트 영역과 옵티마이즈 실행/해금 버튼이 보이는 상태로 준비하세요.",
+                + "- 인게임 자동 투입 설정을 단계별 투입 + 옵티마이즈 동기화 켜기 + 강화 재료 및 에코로 맞춰두세요." + Environment.NewLine
+                + "- 단계별 투입 버튼, 강화 버튼, 완료 오버레이 닫기 영역, 부옵션 텍스트 영역이 보이는 상태로 준비하세요.",
 
             _ => "캘리브레이션할 화면을 준비하세요.",
         };
@@ -754,26 +735,6 @@ public partial class MainWindow : Window
 
         using var template = new Bitmap(assetPath);
         return _visionProcessor.FindTemplateMatches(source, template, threshold);
-    }
-
-    private async Task<int> ReadNumberFromRegionAsync(string regionKey, int? min = null, int? max = null)
-    {
-        var region = _config.Regions[regionKey];
-        if (region.IsEmpty)
-        {
-            throw new InvalidOperationException($"{regionKey} 영역이 설정되지 않았습니다.");
-        }
-
-        using var capture = _screenCapturer.CaptureRegion(region);
-        var text = await _visionProcessor.RecognizeTextAsync(capture);
-        AppendLog($"{regionKey} OCR 원문:{Environment.NewLine}{text}");
-
-        var values = Regex.Matches(text, @"\d+")
-            .Select(match => int.Parse(match.Value))
-            .Where(value => (!min.HasValue || value >= min.Value) && (!max.HasValue || value <= max.Value))
-            .ToArray();
-
-        return values.LastOrDefault();
     }
 
     private void AppendLog(string message)

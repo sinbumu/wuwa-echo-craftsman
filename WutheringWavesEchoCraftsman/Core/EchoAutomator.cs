@@ -51,12 +51,7 @@ public sealed class EchoAutomator
                 return;
             }
 
-            await EnhanceAsync(cancellationToken);
-            await OptimizeAsync(cancellationToken);
-            await EvaluateAsync(cancellationToken);
-
-            _inputController.PressKey(VirtualKeys.Escape);
-            await Task.Delay(ActionDelayMs, cancellationToken);
+            await RunStagedEnhanceLoopAsync(cancellationToken);
             remaining--;
             _config.RemainingCount = remaining;
         }
@@ -82,6 +77,64 @@ public sealed class EchoAutomator
         await ClickRegionAsync("roi_enhance_tab", cancellationToken);
 
         return true;
+    }
+
+    private async Task RunStagedEnhanceLoopAsync(CancellationToken cancellationToken)
+    {
+        var maxAttempts = Math.Clamp(_config.TargetOptimizeCount, 1, 5);
+        EvaluationResult? lastEvaluation = null;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureFailSafeNotTriggered();
+
+            _log($"STAGED_ENHANCE: 단계별 강화 {attempt}/{maxAttempts} 시작");
+            await ClickRegionAsync("roi_staged_auto_input", cancellationToken);
+            await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
+            await CloseCompletionOverlayAsync("roi_enhance_complete_close", "STAGED_ENHANCE", cancellationToken);
+
+            lastEvaluation = await EvaluateSubstatsAsync(cancellationToken);
+            if (lastEvaluation.IsSatisfied)
+            {
+                await ApplyDecisionAsync(lastEvaluation with { Decision = "LOCK" }, cancellationToken);
+                return;
+            }
+        }
+
+        await ApplyDecisionAsync((lastEvaluation ?? EvaluationResult.Empty) with { Decision = "DISCARD" }, cancellationToken);
+    }
+
+    private async Task<EvaluationResult> EvaluateSubstatsAsync(CancellationToken cancellationToken)
+    {
+        var substatRegion = _config.Regions["roi_substat"];
+        using var capture = _screenCapturer.CaptureRegion(substatRegion);
+        using var processed = _visionProcessor.PreprocessForOcr(capture);
+        var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
+        var parsed = SubstatInfo.ParseLines(text);
+
+        var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
+        var validCount = parsed.Count(stat =>
+            enabledRules.Any(rule => rule.Key == stat.Key && stat.Value >= rule.MinValue));
+        var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
+        var requiredSatisfied = requiredRules.All(rule =>
+            parsed.Any(stat => stat.Key == rule.Key && stat.Value >= rule.MinValue));
+        var isSatisfied = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount;
+
+        _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 조건만족={isSatisfied}");
+        return new EvaluationResult(text, validCount, requiredRules.Length, requiredSatisfied, isSatisfied, isSatisfied ? "LOCK" : "DISCARD");
+    }
+
+    private async Task ApplyDecisionAsync(EvaluationResult evaluation, CancellationToken cancellationToken)
+    {
+        _log($"EVALUATE: 최종 판정={evaluation.Decision}");
+        _inputController.PressKey(evaluation.Decision == "LOCK" ? VirtualKeys.C : VirtualKeys.Z);
+        await _databaseService.InsertResultAsync(evaluation.RawText, evaluation.Decision, evaluation.ValidCount, cancellationToken);
+        await Task.Delay(ActionDelayMs, cancellationToken);
+
+        _inputController.PressKey(VirtualKeys.Escape);
+        _log("RETURN: ESC 입력으로 에코 목록 복귀");
+        await Task.Delay(ActionDelayMs, cancellationToken);
     }
 
     private async Task EnhanceAsync(CancellationToken cancellationToken)
@@ -473,5 +526,16 @@ public sealed class EchoAutomator
         {
             throw new OperationCanceledException("마우스 모서리 Fail-Safe가 작동했습니다.");
         }
+    }
+
+    private sealed record EvaluationResult(
+        string RawText,
+        int ValidCount,
+        int RequiredCount,
+        bool RequiredSatisfied,
+        bool IsSatisfied,
+        string Decision)
+    {
+        public static EvaluationResult Empty { get; } = new(string.Empty, 0, 0, false, false, "DISCARD");
     }
 }

@@ -61,28 +61,14 @@ public static class CalibrationTargets
     [
         "roi_list",
         "roi_enhance_tab",
-        "roi_expected_level",
-        "roi_slot_plus",
+        "roi_staged_auto_input",
         "roi_enhance_confirm",
-        "roi_discard_material_confirm",
         "roi_enhance_complete_close",
-        "roi_optimize_tab",
-        "roi_material",
-        "roi_exp_material_1",
-        "roi_exp_material_2",
-        "roi_exp_material_3",
-        "roi_exp_material_4",
         "roi_substat",
-        "roi_optimize_count",
-        "roi_optimize_minus",
-        "roi_optimize_plus",
-        "roi_optimize_confirm",
-        "roi_optimize_complete_close",
     ];
 
     public static readonly string[] RequiredAssetKeys =
     [
         "template_plus_zero.png",
-        "icon_discard.png",
     ];
 }
