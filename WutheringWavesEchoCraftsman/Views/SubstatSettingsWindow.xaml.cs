@@ -45,11 +45,8 @@ public partial class SubstatSettingsWindow : Window
             _rows.Add(new SubstatSettingRow(
                 stat.Key,
                 stat.DisplayName,
-                stat.MinValue,
-                stat.MaxValue,
                 rule?.Enabled ?? false,
-                rule?.Required ?? false,
-                rule is null ? string.Empty : rule.MinValue.ToString("0.##", CultureInfo.InvariantCulture)));
+                rule?.Required ?? false));
         }
     }
 
@@ -58,15 +55,8 @@ public partial class SubstatSettingsWindow : Window
         _config.RequiredValidSubstatCount = Math.Clamp(ParseInt(RequiredCountTextBox.Text, 2), 0, 5);
         _config.SubstatRules = _rows
             .Where(row => row.Enabled)
-            .Select(row => new SubstatRule(row.Key, row.GetClampedMinValue(), true, row.Required))
+            .Select(row => new SubstatRule(row.Key, 0, true, row.Required))
             .ToList();
-
-        foreach (var row in _rows)
-        {
-            row.MinValueText = row.Enabled
-                ? row.GetClampedMinValue().ToString("0.##", CultureInfo.InvariantCulture)
-                : row.MinValueText;
-        }
 
         _save(_config);
     }
@@ -94,17 +84,13 @@ public sealed class SubstatSettingRow : INotifyPropertyChanged
 {
     private bool _enabled;
     private bool _required;
-    private string _minValueText;
 
-    public SubstatSettingRow(string key, string displayName, double minAllowed, double maxAllowed, bool enabled, bool required, string minValueText)
+    public SubstatSettingRow(string key, string displayName, bool enabled, bool required)
     {
         Key = key;
         DisplayName = displayName;
-        MinAllowed = minAllowed;
-        MaxAllowed = maxAllowed;
         _enabled = enabled || required;
         _required = required;
-        _minValueText = minValueText;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -112,10 +98,6 @@ public sealed class SubstatSettingRow : INotifyPropertyChanged
     public string Key { get; }
 
     public string DisplayName { get; }
-
-    public double MinAllowed { get; }
-
-    public double MaxAllowed { get; }
 
     public bool Enabled
     {
@@ -141,23 +123,6 @@ public sealed class SubstatSettingRow : INotifyPropertyChanged
                 Enabled = true;
             }
         }
-    }
-
-    public string MinValueText
-    {
-        get => _minValueText;
-        set => SetField(ref _minValueText, value);
-    }
-
-    public string RangeText => $"{MinAllowed:0.##} ~ {MaxAllowed:0.##}";
-
-    public double GetClampedMinValue()
-    {
-        var value = double.TryParse(MinValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : MinAllowed;
-
-        return Math.Clamp(value, MinAllowed, MaxAllowed);
     }
 
     public void NormalizeSelection()

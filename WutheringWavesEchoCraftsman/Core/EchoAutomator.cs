@@ -123,10 +123,10 @@ public sealed class EchoAutomator
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
         var validCount = parsed.Count(stat =>
-            enabledRules.Any(rule => rule.Key == stat.Key && stat.Value >= rule.MinValue));
+            enabledRules.Any(rule => rule.Key == stat.Key));
         var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
         var requiredSatisfied = requiredRules.All(rule =>
-            parsed.Any(stat => stat.Key == rule.Key && stat.Value >= rule.MinValue));
+            parsed.Any(stat => stat.Key == rule.Key));
         var isSatisfied = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount;
 
         _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 조건만족={isSatisfied}");
@@ -287,10 +287,10 @@ public sealed class EchoAutomator
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
         var validCount = parsed.Count(stat =>
-            enabledRules.Any(rule => rule.Key == stat.Key && stat.Value >= rule.MinValue));
+            enabledRules.Any(rule => rule.Key == stat.Key));
         var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
         var requiredSatisfied = requiredRules.All(rule =>
-            parsed.Any(stat => stat.Key == rule.Key && stat.Value >= rule.MinValue));
+            parsed.Any(stat => stat.Key == rule.Key));
 
         var decision = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount ? "LOCK" : "DISCARD";
         _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 판정={decision}");
