@@ -31,6 +31,44 @@ public sealed class InputController
         SendMouse(MouseEventFlags.LeftUp, "MouseLeftUp");
     }
 
+    public void Drag(int startX, int startY, int endX, int endY, int durationMs = 260, int steps = 8)
+    {
+        if (DryRun)
+        {
+            _log($"[DryRun] 드래그 예정: ({startX}, {startY}) -> ({endX}, {endY})");
+            return;
+        }
+
+        SendAbsoluteMove(startX, startY);
+        Thread.Sleep(40);
+        SendMouse(MouseEventFlags.LeftDown, "MouseLeftDown");
+
+        var safeSteps = Math.Max(1, steps);
+        var stepDelay = Math.Max(10, durationMs / safeSteps);
+        for (var step = 1; step <= safeSteps; step++)
+        {
+            var x = startX + (endX - startX) * step / safeSteps;
+            var y = startY + (endY - startY) * step / safeSteps;
+            SendAbsoluteMove(x, y);
+            Thread.Sleep(stepDelay);
+        }
+
+        SendMouse(MouseEventFlags.LeftUp, "MouseLeftUp");
+    }
+
+    public void ScrollWheel(int x, int y, int wheelDelta)
+    {
+        if (DryRun)
+        {
+            _log($"[DryRun] 휠 스크롤 예정: ({x}, {y}), delta={wheelDelta}");
+            return;
+        }
+
+        SendAbsoluteMove(x, y);
+        Thread.Sleep(40);
+        SendMouseWheel(wheelDelta);
+    }
+
     public void PressKey(ushort virtualKey)
     {
         if (DryRun)
@@ -68,6 +106,26 @@ public sealed class InputController
         var sent = SendInput(1, [input], Marshal.SizeOf<INPUT>());
         var error = Marshal.GetLastWin32Error();
         _log($"{label} SendInput => sent={sent}, error={error}");
+    }
+
+    private void SendMouseWheel(int wheelDelta)
+    {
+        var input = new INPUT
+        {
+            type = InputType.Mouse,
+            U = new InputUnion
+            {
+                mi = new MOUSEINPUT
+                {
+                    mouseData = unchecked((uint)wheelDelta),
+                    dwFlags = MouseEventFlags.Wheel,
+                },
+            },
+        };
+
+        var sent = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        var error = Marshal.GetLastWin32Error();
+        _log($"MouseWheel(delta={wheelDelta}) SendInput => sent={sent}, error={error}");
     }
 
     private void SendAbsoluteMove(int x, int y)
@@ -146,6 +204,7 @@ public sealed class InputController
         Move = 0x0001,
         LeftDown = 0x0002,
         LeftUp = 0x0004,
+        Wheel = 0x0800,
         Absolute = 0x8000,
         VirtualDesk = 0x4000,
     }

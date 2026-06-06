@@ -27,6 +27,12 @@ public sealed class AppConfig
 
     public int CompletionOverlayDelayMs { get; set; } = 1800;
 
+    public int ReturnToListDelayMs { get; set; } = 2000;
+
+    public string EchoListScrollDirection { get; set; } = "Down";
+
+    public int EchoListScrollDelayMs { get; set; } = 800;
+
     public int ExpMaterialSlotsToUse { get; set; } = 1;
 
     public int ExpMaterialClickDelayMs { get; set; } = 150;

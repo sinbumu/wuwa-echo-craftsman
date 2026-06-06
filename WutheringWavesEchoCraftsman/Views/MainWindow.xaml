@@ -224,7 +224,20 @@
                             <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
                                       Content="단계별 투입보다 폐기 에코 사용을 우선시"
                                       IsChecked="False"
-                                      Margin="0" />
+                                      Margin="0,0,0,16" />
+
+                            <TextBlock Text="+0 에코가 안 보일 때 목록 스크롤" Style="{StaticResource FieldLabelTextStyle}" />
+                            <ComboBox x:Name="EchoListScrollDirectionComboBox"
+                                      Height="38"
+                                      Padding="10,6"
+                                      Margin="0"
+                                      Background="{DynamicResource AppBackgroundBrush}"
+                                      Foreground="{DynamicResource PrimaryTextBrush}"
+                                      BorderBrush="{DynamicResource CardBorderBrush}"
+                                      SelectedValuePath="Tag">
+                                <ComboBoxItem Content="아래로 스크롤 (+0이 아래에 있을 때)" Tag="Down" />
+                                <ComboBoxItem Content="위로 스크롤 (+0이 위에 있을 때)" Tag="Up" />
+                            </ComboBox>
                         </StackPanel>
                     </Border>
 
@@ -250,6 +263,12 @@
 
                                 <TextBlock Text="완료 오버레이 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
                                 <TextBox x:Name="CompletionDelayTextBox" Text="1800" Style="{StaticResource InputTextBoxStyle}" />
+
+                                <TextBlock Text="에코 목록 복귀 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="ReturnToListDelayTextBox" Text="2000" Style="{StaticResource InputTextBoxStyle}" />
+
+                                <TextBlock Text="목록 스크롤 후 대기(ms)" Style="{StaticResource FieldLabelTextStyle}" />
+                                <TextBox x:Name="EchoListScrollDelayTextBox" Text="800" Style="{StaticResource InputTextBoxStyle}" />
 
                                 <TextBlock Text="사용할 음파통 영역 수(1~4)"
                                            Style="{StaticResource FieldLabelTextStyle}"

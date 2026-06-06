@@ -72,21 +72,47 @@ public sealed class EchoAutomator
     private async Task<bool> SearchAsync(CancellationToken cancellationToken)
     {
         var listRegion = _config.Regions["roi_list"];
-        using var listCapture = _screenCapturer.CaptureRegion(listRegion);
 
-        var matches = FindAssets(listCapture, "template_plus_zero.png");
-        var match = matches.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
-        _log($"SEARCH: +0 후보 {matches.Count}개, 선택 confidence={match.Confidence:0.000}, local=({match.CenterX}, {match.CenterY})");
-        if (!match.Success)
+        for (var attempt = 0; attempt <= 3; attempt++)
         {
-            return false;
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureFailSafeNotTriggered();
+
+            using var listCapture = _screenCapturer.CaptureRegion(listRegion);
+            var matches = FindAssets(listCapture, "template_plus_zero.png");
+            var match = matches.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
+            _log($"SEARCH: +0 후보 {matches.Count}개, 선택 confidence={match.Confidence:0.000}, local=({match.CenterX}, {match.CenterY}), 탐색={attempt + 1}/4");
+            if (match.Success)
+            {
+                _inputController.Click(listRegion.X + match.CenterX, listRegion.Y + match.CenterY);
+                await Task.Delay(ActionDelayMs, cancellationToken);
+                await ClickRegionAsync("roi_enhance_tab", cancellationToken);
+                return true;
+            }
+
+            if (attempt == 3)
+            {
+                break;
+            }
+
+            await ScrollEchoListAsync(listRegion, attempt + 1, cancellationToken);
         }
 
-        _inputController.Click(listRegion.X + match.CenterX, listRegion.Y + match.CenterY);
-        await Task.Delay(ActionDelayMs, cancellationToken);
-        await ClickRegionAsync("roi_enhance_tab", cancellationToken);
+        return false;
+    }
 
-        return true;
+    private async Task ScrollEchoListAsync(RegionRect listRegion, int scrollAttempt, CancellationToken cancellationToken)
+    {
+        var centerX = listRegion.X + listRegion.Width / 2;
+        var centerY = listRegion.Y + listRegion.Height / 2;
+        var direction = string.Equals(_config.EchoListScrollDirection, "Up", StringComparison.OrdinalIgnoreCase)
+            ? "Up"
+            : "Down";
+        var wheelDelta = direction == "Up" ? 360 : -360;
+
+        _log($"SEARCH: +0 미발견, 목록 {GetScrollDirectionText(direction)} 휠 스크롤 {scrollAttempt}/3 ({centerX},{centerY}), delta={wheelDelta}");
+        _inputController.ScrollWheel(centerX, centerY, wheelDelta);
+        await Task.Delay(EchoListScrollDelayMs, cancellationToken);
     }
 
     private async Task RunStagedEnhanceLoopAsync(CancellationToken cancellationToken)
@@ -206,8 +232,8 @@ public sealed class EchoAutomator
         await Task.Delay(ActionDelayMs, cancellationToken);
 
         _inputController.PressKey(VirtualKeys.Escape);
-        _log("RETURN: ESC 입력으로 에코 목록 복귀");
-        await Task.Delay(ActionDelayMs, cancellationToken);
+        _log($"RETURN: ESC 입력으로 에코 목록 복귀, {ReturnToListDelayMs}ms 대기");
+        await Task.Delay(ReturnToListDelayMs, cancellationToken);
     }
 
     private bool TryGetEarlyDiscardReason(EvaluationResult evaluation, int currentLevel, int targetLevel, out string reason)
@@ -643,6 +669,10 @@ public sealed class EchoAutomator
 
     private int CompletionOverlayDelayMs => Math.Max(300, _config.CompletionOverlayDelayMs);
 
+    private int ReturnToListDelayMs => Math.Max(300, _config.ReturnToListDelayMs);
+
+    private int EchoListScrollDelayMs => Math.Max(300, _config.EchoListScrollDelayMs);
+
     private int ExpMaterialClickDelayMs => Math.Max(50, _config.ExpMaterialClickDelayMs);
 
     private int OptimizeCountClickDelayMs => Math.Max(50, _config.OptimizeCountClickDelayMs);
@@ -680,6 +710,11 @@ public sealed class EchoAutomator
         {
             throw new OperationCanceledException("마우스 모서리 Fail-Safe가 작동했습니다.");
         }
+    }
+
+    private static string GetScrollDirectionText(string direction)
+    {
+        return direction == "Up" ? "위로" : "아래로";
     }
 
     private sealed record EvaluationResult(

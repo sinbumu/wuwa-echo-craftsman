@@ -100,6 +100,21 @@ public sealed class CalibrationManager
             config.CompletionOverlayDelayMs = 1800;
         }
 
+        if (config.ReturnToListDelayMs <= 0)
+        {
+            config.ReturnToListDelayMs = 2000;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.EchoListScrollDirection))
+        {
+            config.EchoListScrollDirection = "Down";
+        }
+
+        if (config.EchoListScrollDelayMs <= 0)
+        {
+            config.EchoListScrollDelayMs = 800;
+        }
+
         if (config.ExpMaterialSlotsToUse <= 0)
         {
             config.ExpMaterialSlotsToUse = 1;
