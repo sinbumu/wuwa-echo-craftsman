@@ -138,6 +138,7 @@ public sealed record CalibrationStep(
             new("roi_staged_auto_input", "단계별 투입 버튼", CalibrationStepKind.Region, CalibrationScreen.Enhance, "인게임 자동 투입 설정을 단계별 투입 + 옵티마이즈 동기화 켜기 + 강화 재료 및 에코로 맞춘 뒤, 강화 화면의 단계별 투입 버튼 영역을 드래그하세요."),
             new("roi_enhance_confirm", "강화 확인 버튼 클릭 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 실행/확인 버튼 영역을 드래그하세요. 자동화는 영역 중앙을 클릭합니다."),
             new("roi_enhance_complete_close", "강화 완료 오버레이 닫기 영역", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 완료 후 뜨는 결과 오버레이에서, 아무 곳이나 클릭해 닫을 수 있는 안전한 영역을 드래그하세요."),
+            new("roi_current_level", "현재 에코 레벨 텍스트", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 화면에서 현재 에코 레벨(+0, +5 등)이 표시되는 작은 텍스트 영역을 드래그하세요."),
             new("roi_substat", "부옵션 텍스트", CalibrationStepKind.Region, CalibrationScreen.Enhance, "강화 화면에서 새 부옵션이 표시되는 텍스트 목록 영역을 드래그하세요."),
         ];
     }
@@ -186,7 +187,7 @@ public static class CalibrationGuide
                 "2/2 에코 강화 화면을 준비하세요." + Environment.NewLine
                 + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
                 + "- 인게임 자동 투입 설정을 단계별 투입 + 옵티마이즈 동기화 켜기 + 강화 재료 및 에코로 맞춰두세요." + Environment.NewLine
-                + "- 단계별 투입 버튼, 강화 버튼, 강화 완료 오버레이 닫기용 안전 클릭 지점, 부옵션 텍스트 영역이 보이게 준비하세요.",
+                + "- 단계별 투입 버튼, 강화 버튼, 강화 완료 오버레이 닫기용 안전 클릭 지점, 현재 레벨 텍스트, 부옵션 텍스트 영역이 보이게 준비하세요.",
 
             _ => "캘리브레이션할 화면을 준비하세요.",
         };

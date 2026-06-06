@@ -64,6 +64,7 @@ public static class CalibrationTargets
         "roi_staged_auto_input",
         "roi_enhance_confirm",
         "roi_enhance_complete_close",
+        "roi_current_level",
         "roi_substat",
     ];
 

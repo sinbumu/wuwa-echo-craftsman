@@ -88,23 +88,44 @@ public sealed class EchoAutomator
 
     private async Task RunStagedEnhanceLoopAsync(CancellationToken cancellationToken)
     {
-        var maxAttempts = Math.Clamp(_config.TargetOptimizeCount, 1, 5);
+        var targetLevel = Math.Clamp(_config.TargetLevel, 5, 25);
         EvaluationResult? lastEvaluation = null;
 
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        for (var attempt = 1; attempt <= 5; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             EnsureFailSafeNotTriggered();
 
-            _log($"STAGED_ENHANCE: 단계별 강화 {attempt}/{maxAttempts} 시작");
+            _log($"STAGED_ENHANCE: 단계별 강화 {attempt}/5 시작, 목표 레벨=+{targetLevel}");
             await ClickRegionAsync("roi_staged_auto_input", cancellationToken);
             await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
             await CloseCompletionOverlayAsync("roi_enhance_complete_close", "STAGED_ENHANCE", cancellationToken);
 
+            var currentLevel = await ReadCurrentLevelAsync(cancellationToken);
+            if (currentLevel is null)
+            {
+                throw new InvalidOperationException("현재 에코 레벨 OCR에 실패했습니다. 재료 과소비 방지를 위해 자동화를 중단합니다.");
+            }
+
+            _log($"STAGED_ENHANCE: 현재 레벨 OCR=+{currentLevel.Value}, 목표=+{targetLevel}");
             lastEvaluation = await EvaluateSubstatsAsync(cancellationToken);
             if (lastEvaluation.IsSatisfied)
             {
                 await ApplyDecisionAsync(lastEvaluation with { Decision = "LOCK" }, cancellationToken);
+                return;
+            }
+
+            if (currentLevel.Value >= targetLevel)
+            {
+                _log($"STAGED_ENHANCE: 목표 레벨 도달(+{currentLevel.Value}/+{targetLevel}), 조건 미달로 폐기");
+                await ApplyDecisionAsync(lastEvaluation with { Decision = "DISCARD" }, cancellationToken);
+                return;
+            }
+
+            if (TryGetEarlyDiscardReason(lastEvaluation, currentLevel.Value, targetLevel, out var reason))
+            {
+                _log($"STAGED_ENHANCE: 조기 폐기 - {reason}");
+                await ApplyDecisionAsync(lastEvaluation with { Decision = "DISCARD" }, cancellationToken);
                 return;
             }
         }
@@ -122,15 +143,15 @@ public sealed class EchoAutomator
         _updateOverlaySubstats?.Invoke(parsed);
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
-        var validCount = parsed.Count(stat =>
-            enabledRules.Any(rule => rule.Key == stat.Key));
+        var parsedKeys = parsed.Select(stat => stat.Key).ToHashSet(StringComparer.Ordinal);
+        var validCount = enabledRules.Count(rule => parsedKeys.Contains(rule.Key));
         var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
-        var requiredSatisfied = requiredRules.All(rule =>
-            parsed.Any(stat => stat.Key == rule.Key));
+        var requiredMatchedCount = requiredRules.Count(rule => parsedKeys.Contains(rule.Key));
+        var requiredSatisfied = requiredMatchedCount == requiredRules.Length;
         var isSatisfied = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount;
 
         _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 조건만족={isSatisfied}");
-        return new EvaluationResult(text, validCount, requiredRules.Length, requiredSatisfied, isSatisfied, isSatisfied ? "LOCK" : "DISCARD");
+        return new EvaluationResult(text, parsed.Count, validCount, requiredRules.Length, requiredMatchedCount, requiredSatisfied, isSatisfied, isSatisfied ? "LOCK" : "DISCARD");
     }
 
     private async Task ApplyDecisionAsync(EvaluationResult evaluation, CancellationToken cancellationToken)
@@ -146,6 +167,72 @@ public sealed class EchoAutomator
         _inputController.PressKey(VirtualKeys.Escape);
         _log("RETURN: ESC 입력으로 에코 목록 복귀");
         await Task.Delay(ActionDelayMs, cancellationToken);
+    }
+
+    private bool TryGetEarlyDiscardReason(EvaluationResult evaluation, int currentLevel, int targetLevel, out string reason)
+    {
+        var currentRevealedCount = GetRevealedSubstatCount(currentLevel);
+        var targetRevealedCount = GetRevealedSubstatCount(targetLevel);
+        var remainingRevealCount = Math.Max(0, targetRevealedCount - currentRevealedCount);
+
+        if (evaluation.ObservedSubstatCount < currentRevealedCount)
+        {
+            reason = $"현재 +{currentLevel} 기준 공개 부옵 {currentRevealedCount}개 중 {evaluation.ObservedSubstatCount}개만 OCR 인식되어 조기 폐기를 보류";
+            _log($"STAGED_ENHANCE: {reason}");
+            return false;
+        }
+
+        var maxPossibleValidCount = evaluation.ValidCount + remainingRevealCount;
+        if (maxPossibleValidCount < _config.RequiredValidSubstatCount)
+        {
+            reason = $"최대 가능 유효 부옵 {maxPossibleValidCount}/{_config.RequiredValidSubstatCount} (현재 {evaluation.ValidCount} + 남은 {remainingRevealCount})";
+            return true;
+        }
+
+        var missingRequiredCount = evaluation.RequiredCount - evaluation.RequiredMatchedCount;
+        if (missingRequiredCount > remainingRevealCount)
+        {
+            reason = $"필수 부옵 미충족 {missingRequiredCount}개가 남은 공개 가능 수 {remainingRevealCount}개보다 많음";
+            return true;
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    private async Task<int?> ReadCurrentLevelAsync(CancellationToken cancellationToken)
+    {
+        var levelRegion = _config.Regions["roi_current_level"];
+        using var capture = _screenCapturer.CaptureRegion(levelRegion);
+        using var processed = _visionProcessor.PreprocessForOcr(capture);
+        var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
+        var level = ParseEchoLevel(text);
+        _log($"STAGED_ENHANCE: 현재 레벨 OCR 원문='{text.ReplaceLineEndings(" ")}', 판독={(level.HasValue ? $"+{level.Value}" : "실패")}");
+        return level;
+    }
+
+    private static int? ParseEchoLevel(string text)
+    {
+        var plusMatch = Regex.Match(text, @"[+＋]\s*(\d{1,2})");
+        if (plusMatch.Success && int.TryParse(plusMatch.Groups[1].Value, out var plusLevel) && plusLevel is >= 0 and <= 25)
+        {
+            return plusLevel;
+        }
+
+        foreach (Match match in Regex.Matches(text, @"\d{1,2}"))
+        {
+            if (int.TryParse(match.Value, out var level) && level is >= 0 and <= 25)
+            {
+                return level;
+            }
+        }
+
+        return null;
+    }
+
+    private static int GetRevealedSubstatCount(int level)
+    {
+        return Math.Clamp(level / 5, 0, 5);
     }
 
     private async Task EnhanceAsync(CancellationToken cancellationToken)
@@ -286,11 +373,11 @@ public sealed class EchoAutomator
         var parsed = SubstatInfo.ParseLines(text);
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
-        var validCount = parsed.Count(stat =>
-            enabledRules.Any(rule => rule.Key == stat.Key));
+        var parsedKeys = parsed.Select(stat => stat.Key).ToHashSet(StringComparer.Ordinal);
+        var validCount = enabledRules.Count(rule => parsedKeys.Contains(rule.Key));
         var requiredRules = enabledRules.Where(rule => rule.Required).ToArray();
-        var requiredSatisfied = requiredRules.All(rule =>
-            parsed.Any(stat => stat.Key == rule.Key));
+        var requiredMatchedCount = requiredRules.Count(rule => parsedKeys.Contains(rule.Key));
+        var requiredSatisfied = requiredMatchedCount == requiredRules.Length;
 
         var decision = requiredSatisfied && validCount >= _config.RequiredValidSubstatCount ? "LOCK" : "DISCARD";
         _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 판정={decision}");
@@ -541,12 +628,14 @@ public sealed class EchoAutomator
 
     private sealed record EvaluationResult(
         string RawText,
+        int ObservedSubstatCount,
         int ValidCount,
         int RequiredCount,
+        int RequiredMatchedCount,
         bool RequiredSatisfied,
         bool IsSatisfied,
         string Decision)
     {
-        public static EvaluationResult Empty { get; } = new(string.Empty, 0, 0, false, false, "DISCARD");
+        public static EvaluationResult Empty { get; } = new(string.Empty, 0, 0, 0, 0, false, false, "DISCARD");
     }
 }
