@@ -15,6 +15,9 @@ public sealed class EchoAutomator
     private readonly InputController _inputController;
     private readonly DatabaseService _databaseService;
     private readonly Action<string> _log;
+    private readonly Action<IReadOnlyList<ParsedSubstat>>? _updateOverlaySubstats;
+    private readonly Action<string>? _addOverlayHistory;
+    private int _processedCount;
 
     public EchoAutomator(
         AppConfig config,
@@ -23,7 +26,9 @@ public sealed class EchoAutomator
         VisionProcessor visionProcessor,
         InputController inputController,
         DatabaseService databaseService,
-        Action<string> log)
+        Action<string> log,
+        Action<IReadOnlyList<ParsedSubstat>>? updateOverlaySubstats = null,
+        Action<string>? addOverlayHistory = null)
     {
         _config = config;
         _calibrationManager = calibrationManager;
@@ -32,6 +37,8 @@ public sealed class EchoAutomator
         _inputController = inputController;
         _databaseService = databaseService;
         _log = log;
+        _updateOverlaySubstats = updateOverlaySubstats;
+        _addOverlayHistory = addOverlayHistory;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -112,6 +119,7 @@ public sealed class EchoAutomator
         using var processed = _visionProcessor.PreprocessForOcr(capture);
         var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
         var parsed = SubstatInfo.ParseLines(text);
+        _updateOverlaySubstats?.Invoke(parsed);
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();
         var validCount = parsed.Count(stat =>
@@ -128,8 +136,11 @@ public sealed class EchoAutomator
     private async Task ApplyDecisionAsync(EvaluationResult evaluation, CancellationToken cancellationToken)
     {
         _log($"EVALUATE: 최종 판정={evaluation.Decision}");
+        _addOverlayHistory?.Invoke(
+            $"{DateTime.Now:HH:mm:ss} #{_processedCount + 1} {(evaluation.Decision == "LOCK" ? "잠금" : "폐기")} (유효 {evaluation.ValidCount}/{_config.RequiredValidSubstatCount})");
         _inputController.PressKey(evaluation.Decision == "LOCK" ? VirtualKeys.C : VirtualKeys.Z);
         await _databaseService.InsertResultAsync(evaluation.RawText, evaluation.Decision, evaluation.ValidCount, cancellationToken);
+        _processedCount++;
         await Task.Delay(ActionDelayMs, cancellationToken);
 
         _inputController.PressKey(VirtualKeys.Escape);

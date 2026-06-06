@@ -627,11 +627,25 @@ public partial class MainWindow : Window
         SaveConfigFromUi();
         _automationCancellation = new CancellationTokenSource();
         var input = new InputController(_config.DryRun, AppendLog);
-        var automator = new EchoAutomator(_config, _calibrationManager, _screenCapturer, _visionProcessor, input, _databaseService, AppendLog);
+        AutomationOverlayWindow? overlay = null;
 
         try
         {
             await PrepareForGameInputAsync("자동화 시작");
+            overlay = new AutomationOverlayWindow();
+            overlay.Show();
+
+            var automator = new EchoAutomator(
+                _config,
+                _calibrationManager,
+                _screenCapturer,
+                _visionProcessor,
+                input,
+                _databaseService,
+                AppendLog,
+                overlay.UpdateSubstats,
+                overlay.AddHistory);
+
             await Task.Run(async () => await automator.RunAsync(_automationCancellation.Token), _automationCancellation.Token);
         }
         catch (OperationCanceledException ex)
@@ -644,6 +658,7 @@ public partial class MainWindow : Window
         }
         finally
         {
+            overlay?.Close();
             _automationCancellation.Dispose();
             _automationCancellation = null;
             _calibrationManager.Save(_config);
