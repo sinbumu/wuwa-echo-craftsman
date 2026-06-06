@@ -204,11 +204,24 @@ public sealed class EchoAutomator
     {
         var levelRegion = _config.Regions["roi_current_level"];
         using var capture = _screenCapturer.CaptureRegion(levelRegion);
-        using var processed = _visionProcessor.PreprocessForOcr(capture);
-        var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
-        var level = ParseEchoLevel(text);
-        _log($"STAGED_ENHANCE: 현재 레벨 OCR 원문='{text.ReplaceLineEndings(" ")}', 판독={(level.HasValue ? $"+{level.Value}" : "실패")}");
-        return level;
+        var attempts = new List<string>();
+
+        using var candidates = new DisposableBitmapList(_visionProcessor.CreateSmallTextOcrCandidates(capture));
+        for (var index = 0; index < candidates.Items.Count; index++)
+        {
+            var text = await _visionProcessor.RecognizeTextAsync(candidates.Items[index], cancellationToken);
+            attempts.Add($"#{index + 1}='{text.ReplaceLineEndings(" ")}'");
+
+            var level = ParseEchoLevel(text);
+            if (level.HasValue)
+            {
+                _log($"STAGED_ENHANCE: 현재 레벨 OCR 성공 후보=#{index + 1}, 원문='{text.ReplaceLineEndings(" ")}', 판독=+{level.Value}");
+                return level;
+            }
+        }
+
+        _log($"STAGED_ENHANCE: 현재 레벨 OCR 실패, ROI=({levelRegion.X},{levelRegion.Y},{levelRegion.Width},{levelRegion.Height}), 후보 원문={string.Join(", ", attempts)}");
+        return null;
     }
 
     private static int? ParseEchoLevel(string text)
@@ -637,5 +650,18 @@ public sealed class EchoAutomator
         string Decision)
     {
         public static EvaluationResult Empty { get; } = new(string.Empty, 0, 0, 0, 0, false, false, "DISCARD");
+    }
+
+    private sealed class DisposableBitmapList(IReadOnlyList<Bitmap> items) : IDisposable
+    {
+        public IReadOnlyList<Bitmap> Items { get; } = items;
+
+        public void Dispose()
+        {
+            foreach (var item in Items)
+            {
+                item.Dispose();
+            }
+        }
     }
 }

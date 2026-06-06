@@ -83,13 +83,68 @@ public sealed class VisionProcessor
     public Bitmap PreprocessForOcr(Bitmap bitmap)
     {
         using var sourceMat = BitmapConverter.ToMat(bitmap);
-        using var gray = new Mat();
+        using var gray = ToGray(sourceMat);
         using var threshold = new Mat();
 
-        Cv2.CvtColor(sourceMat, gray, ColorConversionCodes.BGR2GRAY);
         Cv2.Threshold(gray, threshold, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
 
         return BitmapConverter.ToBitmap(threshold);
+    }
+
+    public IReadOnlyList<Bitmap> CreateSmallTextOcrCandidates(Bitmap bitmap)
+    {
+        using var sourceMat = BitmapConverter.ToMat(bitmap);
+        using var gray = ToGray(sourceMat);
+        using var resizedGray = ResizeAndPad(gray, 5, 28, Scalar.Black);
+        using var threshold = new Mat();
+        using var inverted = new Mat();
+
+        Cv2.Threshold(gray, threshold, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+        Cv2.BitwiseNot(threshold, inverted);
+        using var resizedThreshold = ResizeAndPad(threshold, 5, 28, Scalar.Black);
+        using var resizedInverted = ResizeAndPad(inverted, 5, 28, Scalar.White);
+
+        return
+        [
+            BitmapConverter.ToBitmap(resizedInverted),
+            BitmapConverter.ToBitmap(resizedThreshold),
+            BitmapConverter.ToBitmap(resizedGray),
+            (Bitmap)bitmap.Clone(),
+        ];
+    }
+
+    private static Mat ToGray(Mat source)
+    {
+        var gray = new Mat();
+        if (source.Channels() == 4)
+        {
+            Cv2.CvtColor(source, gray, ColorConversionCodes.BGRA2GRAY);
+            return gray;
+        }
+
+        if (source.Channels() == 3)
+        {
+            Cv2.CvtColor(source, gray, ColorConversionCodes.BGR2GRAY);
+            return gray;
+        }
+
+        return source.Clone();
+    }
+
+    private static Mat ResizeAndPad(Mat source, int scale, int padding, Scalar borderColor)
+    {
+        var resized = new Mat();
+        var padded = new Mat();
+        Cv2.Resize(
+            source,
+            resized,
+            new OpenCvSharp.Size(Math.Max(1, source.Width * scale), Math.Max(1, source.Height * scale)),
+            0,
+            0,
+            InterpolationFlags.Cubic);
+        Cv2.CopyMakeBorder(resized, padded, padding, padding, padding, padding, BorderTypes.Constant, borderColor);
+        resized.Dispose();
+        return padded;
     }
 
     private static async Task<SoftwareBitmap> ToSoftwareBitmapAsync(Bitmap bitmap, CancellationToken cancellationToken)
