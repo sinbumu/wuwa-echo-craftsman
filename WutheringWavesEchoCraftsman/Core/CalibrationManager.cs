@@ -110,6 +110,11 @@ public sealed class CalibrationManager
             config.EchoListScrollDirection = "Down";
         }
 
+        if (config.EchoListScrollAmount <= 0)
+        {
+            config.EchoListScrollAmount = 360;
+        }
+
         if (config.EchoListScrollDelayMs <= 0)
         {
             config.EchoListScrollDelayMs = 800;

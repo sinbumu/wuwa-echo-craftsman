@@ -81,6 +81,7 @@ public partial class MainWindow : Window
         RemainingCountTextBox.Text = _config.RemainingCount.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
         EchoListScrollDirectionComboBox.SelectedValue = NormalizeEchoListScrollDirection(_config.EchoListScrollDirection);
+        EchoListScrollAmountTextBox.Text = _config.EchoListScrollAmount.ToString();
         StartDelayTextBox.Text = _config.StartDelaySeconds.ToString();
         ActionDelayTextBox.Text = _config.ActionDelayMs.ToString();
         CompletionDelayTextBox.Text = _config.CompletionOverlayDelayMs.ToString();
@@ -102,6 +103,7 @@ public partial class MainWindow : Window
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
         _config.EchoListScrollDirection = NormalizeEchoListScrollDirection(EchoListScrollDirectionComboBox.SelectedValue as string);
+        _config.EchoListScrollAmount = Math.Max(120, ParseInt(EchoListScrollAmountTextBox.Text, 360));
         _config.StartDelaySeconds = Math.Max(0, ParseInt(StartDelayTextBox.Text, 3));
         _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
         _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));

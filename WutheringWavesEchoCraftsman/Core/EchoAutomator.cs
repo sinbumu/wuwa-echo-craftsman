@@ -108,7 +108,8 @@ public sealed class EchoAutomator
         var direction = string.Equals(_config.EchoListScrollDirection, "Up", StringComparison.OrdinalIgnoreCase)
             ? "Up"
             : "Down";
-        var wheelDelta = direction == "Up" ? 360 : -360;
+        var scrollAmount = Math.Max(120, _config.EchoListScrollAmount);
+        var wheelDelta = direction == "Up" ? scrollAmount : -scrollAmount;
 
         _log($"SEARCH: +0 미발견, 목록 {GetScrollDirectionText(direction)} 휠 스크롤 {scrollAttempt}/3 ({centerX},{centerY}), delta={wheelDelta}");
         _inputController.ScrollWheel(centerX, centerY, wheelDelta);
