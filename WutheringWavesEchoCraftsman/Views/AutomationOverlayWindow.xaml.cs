@@ -10,9 +10,7 @@ namespace WutheringWavesEchoCraftsman.Views;
 public partial class AutomationOverlayWindow : Window
 {
     private const int GwlExStyle = -20;
-    private const int WsExTransparent = 0x00000020;
     private const int WsExToolWindow = 0x00000080;
-    private const int WsExNoActivate = 0x08000000;
 
     private readonly ObservableCollection<OverlaySubstatRow> _substats = [];
     private readonly ObservableCollection<string> _history = [];
@@ -55,6 +53,18 @@ public partial class AutomationOverlayWindow : Window
         });
     }
 
+    public void ResetForNewRun()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _substats.Clear();
+            _history.Clear();
+            EmptySubstatTextBlock.Visibility = Visibility.Visible;
+            EmptyHistoryTextBlock.Visibility = Visibility.Visible;
+            PositionOnRightMiddle();
+        });
+    }
+
     private void PositionOnRightMiddle()
     {
         var workArea = SystemParameters.WorkArea;
@@ -66,7 +76,12 @@ public partial class AutomationOverlayWindow : Window
     {
         var handle = new WindowInteropHelper(this).Handle;
         var exStyle = GetWindowLong(handle, GwlExStyle);
-        SetWindowLong(handle, GwlExStyle, exStyle | WsExTransparent | WsExToolWindow | WsExNoActivate);
+        SetWindowLong(handle, GwlExStyle, exStyle | WsExToolWindow);
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     [DllImport("user32.dll")]

@@ -52,30 +52,64 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
             .ToArray();
 
         var values = lines
-            .Where(IsValueLine)
-            .Select(ParseValue)
+            .Select(TryParseValueLine)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
             .ToArray();
 
         return namedStats
             .Select((item, index) => new ParsedSubstat(
                 item.Stat!.Key,
                 item.Stat.DisplayName,
-                index < values.Length ? values[index] : 0,
+                index < values.Length ? NormalizeValueForStat(item.Stat, values[index]) : 0,
                 item.RawText))
             .ToArray();
     }
 
-    private static bool IsValueLine(string line)
+    private static double? TryParseValueLine(string line)
     {
-        return FindByText(line) is null && Regex.IsMatch(line, @"\d+(?:[.,]\d+)?\s*%?");
-    }
+        if (FindByText(line) is not null || IsLockedSubstatHint(line))
+        {
+            return null;
+        }
 
-    private static double ParseValue(string line)
-    {
         var match = Regex.Match(line, @"[-+]?\d+(?:[.,]\d+)?");
         return match.Success
             ? double.Parse(match.Value.Replace(',', '.'), CultureInfo.InvariantCulture)
-            : 0;
+            : null;
+    }
+
+    private static bool IsLockedSubstatHint(string line)
+    {
+        var normalized = NormalizeText(line);
+        return normalized.Contains("강화", StringComparison.Ordinal)
+            || normalized.Contains("속성", StringComparison.Ordinal)
+            || normalized.Contains("까지", StringComparison.Ordinal);
+    }
+
+    private static double NormalizeValueForStat(SubstatInfo stat, double value)
+    {
+        if (IsInRange(stat, value))
+        {
+            return value;
+        }
+
+        var adjusted = value;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            adjusted /= 10;
+            if (IsInRange(stat, adjusted))
+            {
+                return adjusted;
+            }
+        }
+
+        return value;
+    }
+
+    private static bool IsInRange(SubstatInfo stat, double value)
+    {
+        return value >= stat.MinValue && value <= stat.MaxValue;
     }
 }
 

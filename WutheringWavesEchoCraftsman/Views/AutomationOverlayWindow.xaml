@@ -12,7 +12,7 @@
         AllowsTransparency="True"
         Background="Transparent"
         SourceInitialized="Window_SourceInitialized">
-    <StackPanel IsHitTestVisible="False">
+    <StackPanel>
         <Border Padding="16"
                 Margin="0,0,0,12"
                 CornerRadius="16"
@@ -20,11 +20,24 @@
                 BorderBrush="#665B5FC7"
                 BorderThickness="1">
             <StackPanel>
-                <TextBlock Text="현재 식별된 부옵션 목록"
-                           Foreground="White"
-                           FontSize="15"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,10" />
+                <DockPanel Margin="0,0,0,10">
+                    <Button DockPanel.Dock="Right"
+                            Content="X"
+                            Width="24"
+                            Height="24"
+                            Padding="0"
+                            FontSize="12"
+                            FontWeight="Bold"
+                            Foreground="White"
+                            Background="#334B5563"
+                            BorderBrush="#667C83FF"
+                            Click="CloseButton_Click" />
+                    <TextBlock Text="현재 식별된 부옵션 목록"
+                               Foreground="White"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </DockPanel>
                 <ItemsControl x:Name="SubstatItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>

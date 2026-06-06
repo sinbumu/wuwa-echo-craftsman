@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private AppConfig _config;
     private CancellationTokenSource? _automationCancellation;
     private GlobalHotKeyManager? _hotKeyManager;
+    private AutomationOverlayWindow? _automationOverlay;
 
     public MainWindow()
     {
@@ -627,13 +628,18 @@ public partial class MainWindow : Window
         SaveConfigFromUi();
         _automationCancellation = new CancellationTokenSource();
         var input = new InputController(_config.DryRun, AppendLog);
-        AutomationOverlayWindow? overlay = null;
 
         try
         {
             await PrepareForGameInputAsync("자동화 시작");
-            overlay = new AutomationOverlayWindow();
-            overlay.Show();
+            if (_automationOverlay is null)
+            {
+                _automationOverlay = new AutomationOverlayWindow();
+                _automationOverlay.Closed += (_, _) => _automationOverlay = null;
+            }
+
+            _automationOverlay.ResetForNewRun();
+            _automationOverlay.Show();
 
             var automator = new EchoAutomator(
                 _config,
@@ -643,8 +649,8 @@ public partial class MainWindow : Window
                 input,
                 _databaseService,
                 AppendLog,
-                overlay.UpdateSubstats,
-                overlay.AddHistory);
+                _automationOverlay.UpdateSubstats,
+                _automationOverlay.AddHistory);
 
             await Task.Run(async () => await automator.RunAsync(_automationCancellation.Token), _automationCancellation.Token);
         }
@@ -658,7 +664,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            overlay?.Close();
             _automationCancellation.Dispose();
             _automationCancellation = null;
             _calibrationManager.Save(_config);
