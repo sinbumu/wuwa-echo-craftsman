@@ -593,6 +593,7 @@ public partial class MainWindow : Window
         {
             CalibrationScreen.EchoList => "에코 목록 화면",
             CalibrationScreen.Enhance => "에코 강화 화면",
+            CalibrationScreen.EnhanceMaterialList => "에코 재료 목록 화면",
             _ => "캘리브레이션 화면",
         };
     }
@@ -602,16 +603,21 @@ public partial class MainWindow : Window
         return screen switch
         {
             CalibrationScreen.EchoList =>
-                "1/2 에코 목록 화면을 준비하세요." + Environment.NewLine
+                "1/3 에코 목록 화면을 준비하세요." + Environment.NewLine
                 + "- 캐릭터 > 에코 탭의 에코 목록 화면으로 이동하세요." + Environment.NewLine
                 + "- 목표 세트/코스트 필터와 레벨 오름차순 정렬을 적용하세요." + Environment.NewLine
                 + "- +0 에코가 보이고, 에코 선택 시 육성 버튼이 보이는 상태가 좋습니다.",
 
             CalibrationScreen.Enhance =>
-                "2/2 에코 강화 화면을 준비하세요." + Environment.NewLine
+                "2/3 에코 강화 화면을 준비하세요." + Environment.NewLine
                 + "- 목록에서 +0 에코를 선택하고 육성 버튼을 눌러 강화 화면으로 이동하세요." + Environment.NewLine
                 + "- 인게임 자동 투입 설정을 단계별 투입 + 옵티마이즈 동기화 켜기 + 강화 재료 및 에코로 맞춰두세요." + Environment.NewLine
-                + "- 단계별 투입 버튼, 강화 버튼, 완료 오버레이 닫기 영역, 현재 레벨 텍스트, 부옵션 텍스트 영역이 보이는 상태로 준비하세요.",
+                + "- 단계별 투입 버튼, 에코 재료 투입 영역, 강화 버튼, 완료 오버레이 닫기 영역, 현재 레벨 텍스트, 부옵션 텍스트 영역이 보이는 상태로 준비하세요.",
+
+            CalibrationScreen.EnhanceMaterialList =>
+                "3/3 에코 재료 목록 화면을 준비하세요." + Environment.NewLine
+                + "- 에코 강화 화면에서 에코 재료 투입 영역을 눌러 우측 재료 목록을 열어두세요." + Environment.NewLine
+                + "- 폐기 에코 아이콘이 보이는 상태로 준비하세요.",
 
             _ => "캘리브레이션할 화면을 준비하세요.",
         };

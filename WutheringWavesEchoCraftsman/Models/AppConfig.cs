@@ -33,7 +33,7 @@ public sealed class AppConfig
 
     public int OptimizeCountClickDelayMs { get; set; } = 150;
 
-    public bool UseDiscardEchoMaterials { get; set; } = true;
+    public bool UseDiscardEchoMaterials { get; set; } = false;
 
     public Dictionary<string, RegionRect> Regions { get; set; } = CreateDefaultRegions();
 
@@ -62,6 +62,8 @@ public static class CalibrationTargets
         "roi_list",
         "roi_enhance_tab",
         "roi_staged_auto_input",
+        "roi_echo_material_input",
+        "roi_echo_material_list",
         "roi_enhance_confirm",
         "roi_enhance_complete_close",
         "roi_current_level",
@@ -71,5 +73,6 @@ public static class CalibrationTargets
     public static readonly string[] RequiredAssetKeys =
     [
         "template_plus_zero.png",
+        "template_discard_echo.png",
     ];
 }

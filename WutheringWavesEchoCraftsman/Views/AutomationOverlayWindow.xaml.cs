@@ -20,7 +20,7 @@ public partial class AutomationOverlayWindow : Window
         InitializeComponent();
         SubstatItemsControl.ItemsSource = _substats;
         HistoryItemsControl.ItemsSource = _history;
-        Loaded += (_, _) => PositionOnRightMiddle();
+        Loaded += (_, _) => PositionOnLeftBottom();
     }
 
     public void UpdateSubstats(IReadOnlyList<ParsedSubstat> substats)
@@ -70,15 +70,15 @@ public partial class AutomationOverlayWindow : Window
             CurrentLevelTextBlock.Text = "미인식";
             EmptySubstatTextBlock.Visibility = Visibility.Visible;
             EmptyHistoryTextBlock.Visibility = Visibility.Visible;
-            PositionOnRightMiddle();
+            PositionOnLeftBottom();
         });
     }
 
-    private void PositionOnRightMiddle()
+    private void PositionOnLeftBottom()
     {
         var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - Width - 48;
-        Top = workArea.Top + workArea.Height * 0.35;
+        Left = workArea.Left + 48;
+        Top = workArea.Bottom - Height - 48;
     }
 
     private void Window_SourceInitialized(object sender, EventArgs e)

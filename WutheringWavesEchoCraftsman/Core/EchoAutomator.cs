@@ -100,9 +100,18 @@ public sealed class EchoAutomator
             EnsureFailSafeNotTriggered();
 
             _log($"STAGED_ENHANCE: 단계별 강화 {attempt}/5 시작, 목표 레벨=+{targetLevel}");
-            await ClickRegionAsync("roi_staged_auto_input", cancellationToken);
+            var usedDiscardMaterial = _config.UseDiscardEchoMaterials
+                && await TrySelectDiscardEchoMaterialAsync(cancellationToken);
+            if (!usedDiscardMaterial)
+            {
+                await ClickRegionAsync("roi_staged_auto_input", cancellationToken);
+            }
+
             await ClickRegionAsync("roi_enhance_confirm", cancellationToken);
-            await CloseCompletionOverlayAsync("roi_enhance_complete_close", "STAGED_ENHANCE", cancellationToken);
+            await CloseCompletionOverlayAsync(
+                "roi_enhance_complete_close",
+                usedDiscardMaterial ? "DISCARD_MATERIAL_ENHANCE" : "STAGED_ENHANCE",
+                cancellationToken);
 
             var currentLevel = await ReadCurrentLevelAsync(cancellationToken);
             if (currentLevel is null)
@@ -134,6 +143,35 @@ public sealed class EchoAutomator
         }
 
         await ApplyDecisionAsync((lastEvaluation ?? EvaluationResult.Empty) with { Decision = "DISCARD" }, cancellationToken);
+    }
+
+    private async Task<bool> TrySelectDiscardEchoMaterialAsync(CancellationToken cancellationToken)
+    {
+        _log("DISCARD_MATERIAL: 폐기 에코 우선 투입 시도");
+        await ClickRegionAsync("roi_echo_material_input", cancellationToken);
+
+        var materialRegion = _config.Regions["roi_echo_material_list"];
+        using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
+        var discards = FindAssets(materialCapture, "template_discard_echo.png", 0.80);
+        var discard = discards.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
+        _log($"DISCARD_MATERIAL: 폐기 에코 후보 {discards.Count}개");
+
+        if (!discard.Success)
+        {
+            _inputController.PressKey(VirtualKeys.Escape);
+            _log("DISCARD_MATERIAL: 폐기 에코 없음, 재료 목록 닫기 후 단계별 투입으로 전환");
+            await Task.Delay(ActionDelayMs, cancellationToken);
+            return false;
+        }
+
+        _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+        _log($"DISCARD_MATERIAL: 폐기 에코 선택 confidence={discard.Confidence:0.000}, local=({discard.CenterX}, {discard.CenterY})");
+        await Task.Delay(ActionDelayMs, cancellationToken);
+
+        _inputController.PressKey(VirtualKeys.Escape);
+        _log("DISCARD_MATERIAL: 재료 목록 닫기 ESC 입력");
+        await Task.Delay(ActionDelayMs, cancellationToken);
+        return true;
     }
 
     private async Task<EvaluationResult> EvaluateSubstatsAsync(CancellationToken cancellationToken)

@@ -13,6 +13,7 @@
 - 자동화 대상은 목록에 보이는 `+0` 에코다.
 - 인게임 `자동 투입 설정`은 `단계별 투입`, `옵티마이즈 동기화 켜기`, `강화 재료 및 에코`로 미리 맞춘다.
 - 메인 화면에서 사용자는 `옵티마이즈 최대 시행 횟수(1~5)`를 지정한다. 목표 레벨은 이 값에 5를 곱한 읽기 전용 값으로 표시되며, 자동화는 실제 현재 레벨 OCR이 목표 레벨 이상인지 확인한다.
+- `단계별 투입보다 폐기 에코 사용을 우선시`가 켜져 있으면 자동화는 재료 목록에서 폐기 에코를 먼저 찾아 사용하고, 없을 때만 단계별 투입으로 돌아간다.
 - 부옵션 판정 조건은 `부옵션 설정` 창에서 별도로 관리한다.
 
 `Dry-run`이 켜져 있으면 실제 클릭/키 입력은 보내지 않고 로그만 남긴다.
@@ -32,12 +33,15 @@
 ### 2.2. 에코 강화 화면
 
 - `roi_staged_auto_input`: 단계별 투입 버튼 클릭 영역
+- `roi_echo_material_input`: 에코 재료 목록을 여는 재료 투입 영역
+- `roi_echo_material_list`: 폐기 에코 아이콘을 수색할 에코 재료 목록 영역
+- `template_discard_echo.png`: 재료 목록 안의 폐기 에코 아이콘 이미지
 - `roi_enhance_confirm`: 강화 실행/확인 버튼 클릭 영역
 - `roi_enhance_complete_close`: 강화 완료 오버레이를 닫기 위한 안전 클릭 영역
 - `roi_current_level`: 강화 화면에 표시되는 현재 에코 레벨 OCR 영역
 - `roi_substat`: 강화 화면에 표시되는 부옵션 텍스트 OCR 영역
 
-자동화는 더 이상 재료 리스트를 열거나 옵티마이즈/튜닝 탭으로 이동하지 않는다.
+자동화는 옵티마이즈/튜닝 탭으로 이동하지 않는다. 폐기 에코 우선 옵션이 켜진 경우에만 에코 재료 목록을 열어 폐기 에코를 먼저 수색한다.
 
 ## 3. 자동화 1회 처리 흐름
 
@@ -47,8 +51,13 @@
 flowchart TD
     Start["F5 또는 시작 버튼"] --> Search["+0 에코 검색"]
     Search --> EnhanceTab["육성 화면 진입"]
-    EnhanceTab --> StagedInput["단계별 투입 클릭"]
-    StagedInput --> EnhanceConfirm["강화 실행 및 오버레이 닫기"]
+    EnhanceTab --> PreferDiscard{"폐기 에코 우선 사용?"}
+    PreferDiscard -->|"켜짐"| FindDiscard["재료 목록에서 폐기 에코 수색"]
+    FindDiscard -->|"발견"| SelectDiscard["폐기 에코 선택"]
+    FindDiscard -->|"없음"| StagedInput["단계별 투입 클릭"]
+    PreferDiscard -->|"꺼짐"| StagedInput
+    SelectDiscard --> EnhanceConfirm["강화 실행 및 오버레이 닫기"]
+    StagedInput --> EnhanceConfirm
     EnhanceConfirm --> ReadLevel["현재 레벨 OCR"]
     ReadLevel --> Evaluate["부옵션 OCR 및 조건 판정"]
     Evaluate -->|"조건 만족"| Lock["C 입력으로 잠금"]
@@ -72,16 +81,19 @@ flowchart TD
 
 ### 4.2. STAGED_ENHANCE
 
-1. `roi_staged_auto_input` 중앙을 클릭한다.
-2. 짧게 대기한 뒤 `roi_enhance_confirm` 중앙을 클릭한다.
-3. 강화 성공 오버레이가 뜰 시간을 기다린 뒤 `roi_enhance_complete_close` 중앙을 클릭해 닫는다.
-4. 같은 강화 화면의 `roi_current_level` 영역을 OCR로 읽어 실제 현재 레벨을 확인한다.
-5. 같은 강화 화면의 `roi_substat` 영역을 OCR로 읽는다.
-6. 사용자가 설정한 부옵션 조건을 만족하면 즉시 `C`를 입력해 잠금 처리한다.
-7. 현재 유효 부옵션 개수와 남은 공개 가능 부옵션 개수로 계산했을 때 조건 달성이 불가능하면 즉시 `Z`를 입력해 폐기 처리한다.
-8. 현재 레벨이 목표 레벨 이상인데 조건을 만족하지 못하면 `Z`를 입력해 폐기 처리한다.
-9. 현재 레벨이 목표 레벨보다 낮고 조건 달성 가능성이 남아 있으면 1번으로 돌아간다.
-10. 잠금/폐기 후 OCR 원문, 판정 결과, 유효 개수, 시간 정보를 SQLite 히스토리에 저장한다.
+1. `단계별 투입보다 폐기 에코 사용을 우선시`가 켜져 있으면 `roi_echo_material_input` 중앙을 클릭해 에코 재료 목록을 연다.
+2. `roi_echo_material_list` 안에서 `template_discard_echo.png`를 이미지 매칭으로 찾는다.
+3. 폐기 에코가 있으면 하나를 선택하고 `ESC`로 재료 목록을 닫는다.
+4. 폐기 에코가 없거나 우선 사용 옵션이 꺼져 있으면 `roi_staged_auto_input` 중앙을 클릭한다.
+5. 짧게 대기한 뒤 `roi_enhance_confirm` 중앙을 클릭한다.
+6. 강화 성공 오버레이가 뜰 시간을 기다린 뒤 `roi_enhance_complete_close` 중앙을 클릭해 닫는다.
+7. 같은 강화 화면의 `roi_current_level` 영역을 OCR로 읽어 실제 현재 레벨을 확인한다.
+8. 같은 강화 화면의 `roi_substat` 영역을 OCR로 읽는다.
+9. 사용자가 설정한 부옵션 조건을 만족하면 즉시 `C`를 입력해 잠금 처리한다.
+10. 현재 유효 부옵션 개수와 남은 공개 가능 부옵션 개수로 계산했을 때 조건 달성이 불가능하면 즉시 `Z`를 입력해 폐기 처리한다.
+11. 현재 레벨이 목표 레벨 이상인데 조건을 만족하지 못하면 `Z`를 입력해 폐기 처리한다.
+12. 현재 레벨이 목표 레벨보다 낮고 조건 달성 가능성이 남아 있으면 1번으로 돌아간다.
+13. 잠금/폐기 후 OCR 원문, 판정 결과, 유효 개수, 시간 정보를 SQLite 히스토리에 저장한다.
 
 ## 5. 부옵션 판정
 
@@ -118,6 +130,7 @@ flowchart TD
 ## 8. 현재 설계상 주의점
 
 - 인게임 자동 투입 설정이 맞지 않으면 `roi_staged_auto_input` 클릭 이후 의도한 강화 재료가 들어가지 않을 수 있다.
+- 폐기 에코 우선 옵션을 쓰려면 `roi_echo_material_input`, `roi_echo_material_list`, `template_discard_echo.png`가 정확히 캘리브레이션되어야 한다.
 - `roi_substat`은 강화 화면에 표시되는 부옵션 영역을 지정해야 한다. 옵티마이즈 탭으로 이동하지 않는다.
 - 고정 버튼은 대부분 이미지 매칭이 아니라 ROI 중앙 클릭으로 처리한다.
 - 이미지 매칭은 현재 `+0 표시`에 사용한다.

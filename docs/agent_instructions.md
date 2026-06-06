@@ -56,14 +56,15 @@ WutheringWavesEchoCraftsman.sln
 
 ### 5.2. 오버레이 캘리브레이션 UX
 1. 메인 화면의 **[초기 설정 시작]** 버튼은 일회성 마법사가 아니라 **초기 설정 관리 창**을 연다.
-2. 초기 설정 관리 창은 7개 캘리브레이션 항목의 현재 저장 상태(미설정/저장됨), ROI 좌표, asset 파일 경로를 표로 보여준다.
+2. 초기 설정 관리 창은 캘리브레이션 항목의 현재 저장 상태(미설정/저장됨), ROI 좌표, asset 파일 경로를 표로 보여준다.
 3. 사용자는 전체를 다시 할 필요 없이 **선택 항목만 다시 캡처**, **선택한 화면 단계 전체 다시 캡처**, **전체 순차 캘리브레이션** 중 하나를 실행할 수 있다.
-4. 캘리브레이션 캡처는 **2단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
+4. 캘리브레이션 캡처는 **3단계 화면 준비 -> 3초 후 캡처 -> 드래그 수집** 방식으로 진행한다.
 5. 각 단계 시작 전 WPF 안내 팝업으로 사용자가 어떤 인게임 화면을 준비해야 하는지 구체적으로 설명한다.
 6. 드래그(RubberBand)를 통해 영역 지정.
-7. **수집 타겟 (총 7종):**
-   - **[1/2 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `roi_enhance_tab`
-   - **[2/2 에코 강화 화면]:** `roi_staged_auto_input`, `roi_enhance_confirm`, `roi_enhance_complete_close`, `roi_substat`
+7. **수집 타겟:**
+   - **[1/3 에코 목록 화면]:** `roi_list`, `template_plus_zero.png`, `roi_enhance_tab`
+   - **[2/3 에코 강화 화면]:** `roi_staged_auto_input`, `roi_echo_material_input`, `roi_enhance_confirm`, `roi_enhance_complete_close`, `roi_current_level`, `roi_substat`
+   - **[3/3 에코 재료 목록 화면]:** `roi_echo_material_list`, `template_discard_echo.png`
 
 ### 5.3. 부옵션 필터링 및 OCR 정규화
 - **정규화:** WinRT OCR 결과에서 공백/특수문자 제거 후 13종 표준 명칭으로 치환.
@@ -72,8 +73,8 @@ WutheringWavesEchoCraftsman.sln
 ### 5.4. 자동화 상태 머신 (Task-Driven State Machine)
 - **상태 머신은 각 루프 시작 시 GUI에서 설정한 `remainingCount`를 확인하고, 0 이하이면 정상 종료한다.**
 - **SEARCH:** `roi_list`에서 `template_plus_zero.png` 후보 전체 매칭 -> `Y 좌표`, `X 좌표` 순으로 정렬해 가장 위/왼쪽 후보 클릭 -> `roi_enhance_tab` 중앙 클릭. (매칭 실패 시 **정상 종료**)
-- **STAGED_ENHANCE:** 에코 강화 화면에서 `roi_staged_auto_input` 클릭 -> `roi_enhance_confirm` 클릭 -> 강화 완료 오버레이를 `roi_enhance_complete_close` 중앙 클릭으로 닫음 -> 같은 화면의 `roi_substat` OCR 판독. 이 과정을 옵티마이즈 최대 시행 횟수만큼 반복하되, 조건 만족 시 즉시 종료.
-- **EVALUATE:** 각 단계별 강화 후 `roi_substat` OCR 검증 -> 필터 조건 판별. 조건 만족 시 `C`(잠금), 최대 시행 횟수까지 조건 미달 시 `Z`(폐기). OCR 원문과 판정을 DB에 기록.
+- **STAGED_ENHANCE:** 폐기 에코 우선 옵션이 켜져 있으면 `roi_echo_material_input`으로 재료 목록을 열고 `template_discard_echo.png`를 먼저 찾는다. 폐기 에코가 있으면 선택 후 강화하고, 없으면 `ESC`로 목록을 닫은 뒤 `roi_staged_auto_input`으로 단계별 투입한다. 강화 완료 오버레이를 닫은 뒤 `roi_current_level`과 `roi_substat` OCR을 판독한다.
+- **EVALUATE:** 각 강화 후 `roi_substat` OCR 검증 -> 필터 조건 판별. 조건 만족 시 `C`(잠금), 현재 레벨이 목표 레벨 이상이거나 남은 부옵 공개 가능 수로 조건 달성이 불가능하면 `Z`(폐기). OCR 원문과 판정을 DB에 기록.
 - **RETURN:** 잠금/폐기 후 `ESC` 입력으로 에코 리스트 복귀. `remainingCount` 차감 후 SEARCH 재진입.
 
 ## 6. Instructions for the AI Agent (Strict Rules)

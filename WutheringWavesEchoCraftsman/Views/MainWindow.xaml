@@ -219,7 +219,12 @@
                                      Text="1"
                                      TextChanged="OptimizeCountTextBox_TextChanged"
                                      Style="{StaticResource InputTextBoxStyle}"
-                                     Margin="0" />
+                                     Margin="0,0,0,16" />
+
+                            <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
+                                      Content="단계별 투입보다 폐기 에코 사용을 우선시"
+                                      IsChecked="False"
+                                      Margin="0" />
                         </StackPanel>
                     </Border>
 
@@ -253,12 +258,6 @@
                                          Text="1"
                                          Style="{StaticResource InputTextBoxStyle}"
                                          Visibility="Collapsed" />
-
-                                <CheckBox x:Name="UseDiscardEchoMaterialsCheckBox"
-                                          Content="폐기 에코 강화재료로 사용"
-                                          IsChecked="True"
-                                          Margin="0,2,0,16"
-                                          Visibility="Collapsed" />
 
                                 <TextBlock Text="음파통 클릭 후 대기(ms)"
                                            Style="{StaticResource FieldLabelTextStyle}"
