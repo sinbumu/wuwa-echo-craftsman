@@ -178,8 +178,8 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
             return percentVariant;
         }
 
-        var fitsPercent = IsInRange(percentVariant, NormalizeValueForStat(percentVariant, value.Value));
-        var fitsFlat = IsInRange(flatVariant, NormalizeValueForStat(flatVariant, value.Value));
+        var fitsPercent = IsInRange(percentVariant, value.Value);
+        var fitsFlat = IsInRange(flatVariant, value.Value);
         return (fitsPercent, fitsFlat) switch
         {
             (true, false) => percentVariant,
