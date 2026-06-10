@@ -9,11 +9,11 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
     [
         new("crit_rate", "크리티컬", 6.3, 10.5, ["크리티컬", "크리", "치명타", "crit"]),
         new("crit_damage", "크리티컬 피해", 12.6, 21.0, ["크리티컬피해", "크피", "치명타피해", "critdamage"]),
-        new("atk_percent", "공격력(%)", 6.4, 11.6, ["공격력%", "공격력퍼센트", "atk%"]),
+        new("atk_percent", "공격력(%)", 6.4, 11.6, ["공격력%", "공격력퍼센트", "공격력비율", "atk%"]),
         new("atk_flat", "공격력", 30, 60, ["공격력", "atk"]),
-        new("hp_percent", "HP(%)", 6.4, 11.6, ["hp%", "hp퍼센트", "체력%", "체력퍼센트"]),
+        new("hp_percent", "HP(%)", 6.4, 11.6, ["hp%", "hp퍼센트", "hp비율", "체력%", "체력퍼센트", "체력비율"]),
         new("hp_flat", "HP", 320, 580, ["hp", "체력"]),
-        new("def_percent", "방어력(%)", 8.1, 14.7, ["방어력%", "방어력퍼센트", "def%"]),
+        new("def_percent", "방어력(%)", 8.1, 14.7, ["방어력%", "방어력퍼센트", "방어력비율", "def%"]),
         new("def_flat", "방어력", 30, 70, ["방어력", "def"]),
         new("energy_regen", "공명 효율", 6.8, 12.4, ["공명효율", "공효", "에너지회복", "energyregen"]),
         new("basic_damage", "일반 공격 피해", 6.4, 11.6, ["일반공격피해", "일반공격피해보너스", "일반피증", "평타피증"]),
@@ -24,16 +24,37 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
 
     public static string NormalizeText(string text)
     {
-        return Regex.Replace(text, @"[\s\p{P}\p{S}]+", string.Empty).ToLowerInvariant();
+        var normalized = text
+            .Replace("％", "%", StringComparison.Ordinal)
+            .Replace("﹪", "%", StringComparison.Ordinal)
+            .Replace("퍼센트", "%", StringComparison.Ordinal)
+            .Replace("percent", "%", StringComparison.OrdinalIgnoreCase);
+
+        return Regex.Replace(normalized, @"[^\p{L}\p{N}%]+", string.Empty).ToLowerInvariant();
     }
 
     public static SubstatInfo? FindByText(string text)
     {
         var normalized = NormalizeText(text);
+        var hasPercentMarker = normalized.Contains('%', StringComparison.Ordinal);
 
-        return All.FirstOrDefault(stat =>
-            NormalizeText(stat.DisplayName) == normalized
-            || stat.Aliases.Any(alias => normalized.Contains(NormalizeText(alias), StringComparison.Ordinal)));
+        var exactMatch = All.FirstOrDefault(stat => NormalizeText(stat.DisplayName) == normalized)
+            ?? All.FirstOrDefault(stat => stat.Aliases.Any(alias => NormalizeText(alias) == normalized));
+        if (exactMatch is not null)
+        {
+            return exactMatch;
+        }
+
+        return All
+            .SelectMany(stat => stat.Aliases.Select(alias => new
+            {
+                Stat = stat,
+                NormalizedAlias = NormalizeText(alias),
+            }))
+            .Where(item => !item.NormalizedAlias.Contains('%', StringComparison.Ordinal) || hasPercentMarker)
+            .OrderByDescending(item => item.NormalizedAlias.Length)
+            .FirstOrDefault(item => normalized.Contains(item.NormalizedAlias, StringComparison.Ordinal))
+            ?.Stat;
     }
 
     public static IReadOnlyList<ParsedSubstat> ParseLines(string ocrText)
@@ -53,20 +74,25 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
 
         var values = lines
             .Select(TryParseValueLine)
-            .Where(value => value.HasValue)
-            .Select(value => value!.Value)
+            .Where(value => value is not null)
+            .Select(value => value!)
             .ToArray();
 
         return namedStats
-            .Select((item, index) => new ParsedSubstat(
-                item.Stat!.Key,
-                item.Stat.DisplayName,
-                index < values.Length ? NormalizeValueForStat(item.Stat, values[index]) : 0,
-                item.RawText))
+            .Select((item, index) =>
+            {
+                var parsedValue = index < values.Length ? values[index] : (ParsedSubstatValue?)null;
+                var stat = ResolveStatVariant(item.Stat!, parsedValue);
+                return new ParsedSubstat(
+                    stat.Key,
+                    stat.DisplayName,
+                    parsedValue is null ? 0 : NormalizeValueForStat(stat, parsedValue.Value),
+                    item.RawText);
+            })
             .ToArray();
     }
 
-    private static double? TryParseValueLine(string line)
+    private static ParsedSubstatValue? TryParseValueLine(string line)
     {
         if (FindByText(line) is not null || IsLockedSubstatHint(line))
         {
@@ -74,9 +100,14 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
         }
 
         var match = Regex.Match(line, @"[-+]?\d+(?:[.,]\d+)?");
-        return match.Success
-            ? double.Parse(match.Value.Replace(',', '.'), CultureInfo.InvariantCulture)
-            : null;
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var hasPercentMarker = NormalizeText(line).Contains('%', StringComparison.Ordinal);
+        var value = double.Parse(match.Value.Replace(',', '.'), CultureInfo.InvariantCulture);
+        return new ParsedSubstatValue(value, hasPercentMarker);
     }
 
     private static bool IsLockedSubstatHint(string line)
@@ -111,6 +142,53 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
     {
         return value >= stat.MinValue && value <= stat.MaxValue;
     }
+
+    private static SubstatInfo ResolveStatVariant(SubstatInfo stat, ParsedSubstatValue? value)
+    {
+        if (value is null)
+        {
+            return stat;
+        }
+
+        var percentVariantKey = stat.Key switch
+        {
+            "atk_flat" or "atk_percent" => "atk_percent",
+            "hp_flat" or "hp_percent" => "hp_percent",
+            "def_flat" or "def_percent" => "def_percent",
+            _ => null,
+        };
+        var flatVariantKey = stat.Key switch
+        {
+            "atk_flat" or "atk_percent" => "atk_flat",
+            "hp_flat" or "hp_percent" => "hp_flat",
+            "def_flat" or "def_percent" => "def_flat",
+            _ => null,
+        };
+
+        if (percentVariantKey is null || flatVariantKey is null)
+        {
+            return stat;
+        }
+
+        var percentVariant = All.First(item => item.Key == percentVariantKey);
+        var flatVariant = All.First(item => item.Key == flatVariantKey);
+
+        if (value.HasPercentMarker)
+        {
+            return percentVariant;
+        }
+
+        var fitsPercent = IsInRange(percentVariant, NormalizeValueForStat(percentVariant, value.Value));
+        var fitsFlat = IsInRange(flatVariant, NormalizeValueForStat(flatVariant, value.Value));
+        return (fitsPercent, fitsFlat) switch
+        {
+            (true, false) => percentVariant,
+            (false, true) => flatVariant,
+            _ => stat,
+        };
+    }
 }
 
 public sealed record ParsedSubstat(string Key, string DisplayName, double Value, string RawText);
+
+public sealed record ParsedSubstatValue(double Value, bool HasPercentMarker);

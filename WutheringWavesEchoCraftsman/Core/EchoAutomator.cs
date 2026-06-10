@@ -242,25 +242,25 @@ public sealed class EchoAutomator
         var currentRevealedCount = GetRevealedSubstatCount(currentLevel);
         var targetRevealedCount = GetRevealedSubstatCount(targetLevel);
         var remainingRevealCount = Math.Max(0, targetRevealedCount - currentRevealedCount);
+        var unrecognizedCurrentSlots = Math.Max(0, currentRevealedCount - evaluation.ObservedSubstatCount);
+        var possibleUnknownSlots = remainingRevealCount + unrecognizedCurrentSlots;
 
-        if (evaluation.ObservedSubstatCount < currentRevealedCount)
+        if (unrecognizedCurrentSlots > 0)
         {
-            reason = $"현재 +{currentLevel} 기준 공개 부옵 {currentRevealedCount}개 중 {evaluation.ObservedSubstatCount}개만 OCR 인식되어 조기 폐기를 보류";
-            _log($"STAGED_ENHANCE: {reason}");
-            return false;
+            _log($"STAGED_ENHANCE: 현재 +{currentLevel} 기준 공개 부옵 {currentRevealedCount}개 중 {evaluation.ObservedSubstatCount}개만 OCR 인식됨. 미인식 {unrecognizedCurrentSlots}개는 가능성 계산에 포함합니다.");
         }
 
-        var maxPossibleValidCount = evaluation.ValidCount + remainingRevealCount;
+        var maxPossibleValidCount = evaluation.ValidCount + possibleUnknownSlots;
         if (maxPossibleValidCount < _config.RequiredValidSubstatCount)
         {
-            reason = $"최대 가능 유효 부옵 {maxPossibleValidCount}/{_config.RequiredValidSubstatCount} (현재 {evaluation.ValidCount} + 남은 {remainingRevealCount})";
+            reason = $"최대 가능 유효 부옵 {maxPossibleValidCount}/{_config.RequiredValidSubstatCount} (현재 유효 {evaluation.ValidCount} + 남은/미인식 슬롯 {possibleUnknownSlots})";
             return true;
         }
 
         var missingRequiredCount = evaluation.RequiredCount - evaluation.RequiredMatchedCount;
-        if (missingRequiredCount > remainingRevealCount)
+        if (missingRequiredCount > possibleUnknownSlots)
         {
-            reason = $"필수 부옵 미충족 {missingRequiredCount}개가 남은 공개 가능 수 {remainingRevealCount}개보다 많음";
+            reason = $"필수 부옵 미충족 {missingRequiredCount}개가 남은/미인식 슬롯 {possibleUnknownSlots}개보다 많음";
             return true;
         }
 
