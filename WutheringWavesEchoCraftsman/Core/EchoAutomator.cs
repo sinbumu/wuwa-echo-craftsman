@@ -57,7 +57,7 @@ public sealed class EchoAutomator
             _log($"루프 시작: 남은 횟수 {remaining}");
             if (!await SearchAsync(cancellationToken))
             {
-                _log("SEARCH: +0 에코를 찾지 못해 정상 종료합니다.");
+                _log("SEARCH: +0 에코를 찾지 못해 정상 종료합니다. 에코 목록 필터/정렬, +0 표시 캡처, 목록 스크롤 방향/강도를 확인하세요.");
                 return;
             }
 
@@ -143,7 +143,7 @@ public sealed class EchoAutomator
             var currentLevel = await ReadCurrentLevelAsync(cancellationToken);
             if (currentLevel is null)
             {
-                throw new InvalidOperationException("현재 에코 레벨 OCR에 실패했습니다. 재료 과소비 방지를 위해 자동화를 중단합니다.");
+                throw new InvalidOperationException("현재 에코 레벨을 읽지 못했습니다. 현재 레벨 텍스트 영역을 글자보다 여백 있게 다시 잡아보세요. 재료 과소비 방지를 위해 자동화를 중단합니다.");
             }
 
             _log($"STAGED_ENHANCE: 현재 레벨 OCR=+{currentLevel.Value}, 목표=+{targetLevel}");

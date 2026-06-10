@@ -651,6 +651,12 @@ public partial class MainWindow : Window
         try
         {
             await PrepareForGameInputAsync("자동화 시작");
+            if (!await RunPreflightCheckAsync())
+            {
+                AppendLog("자동화 시작 전 점검 실패: 위 안내를 확인한 뒤 설정이나 게임 화면을 수정하세요.");
+                return;
+            }
+
             if (_automationOverlay is null)
             {
                 _automationOverlay = new AutomationOverlayWindow();
@@ -725,6 +731,129 @@ public partial class MainWindow : Window
         AppendLog($"{purpose}: {_config.StartDelaySeconds}초 후 실행합니다. 명조 창을 포커스하세요.");
         Hide();
         await Task.Delay(TimeSpan.FromSeconds(_config.StartDelaySeconds));
+    }
+
+    private async Task<bool> RunPreflightCheckAsync()
+    {
+        AppendLog("자동화 시작 전 점검: 필수 설정과 현재 화면을 확인합니다.");
+
+        var failures = new List<string>();
+        foreach (var key in GetPreflightRequiredRegionKeys())
+        {
+            if (!_config.Regions.TryGetValue(key, out var region) || region.IsEmpty)
+            {
+                failures.Add($"{GetCalibrationTargetDisplayName(key)} 영역이 설정되지 않았습니다.");
+            }
+        }
+
+        foreach (var key in GetPreflightRequiredAssetKeys())
+        {
+            if (!_config.Assets.TryGetValue(key, out var path) || string.IsNullOrWhiteSpace(path))
+            {
+                failures.Add($"{GetCalibrationTargetDisplayName(key)} 이미지가 설정되지 않았습니다.");
+                continue;
+            }
+
+            var assetPath = _calibrationManager.ResolvePath(path);
+            if (!File.Exists(assetPath))
+            {
+                failures.Add($"{GetCalibrationTargetDisplayName(key)} 이미지 파일을 찾을 수 없습니다: {assetPath}");
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            AppendPreflightFailures(failures);
+            return false;
+        }
+
+        try
+        {
+            var listRegion = _config.Regions["roi_list"];
+            using var listCapture = _screenCapturer.CaptureRegion(listRegion);
+            var plusZeroMatches = FindAssets(listCapture, "template_plus_zero.png", 0.85);
+            if (plusZeroMatches.Count == 0)
+            {
+                AppendLog("자동화 시작 전 점검: 현재 보이는 목록에서는 +0 에코가 탐지되지 않았습니다. 자동화가 설정된 방향으로 최대 3회 스크롤하며 다시 찾습니다.");
+            }
+            else
+            {
+                var best = plusZeroMatches[0];
+                AppendLog($"자동화 시작 전 점검: +0 에코 탐지 성공 ({plusZeroMatches.Count}개, confidence={best.Confidence:0.000})");
+            }
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"에코 목록 화면 확인 중 오류가 발생했습니다: {ex.Message}");
+        }
+
+        if (_config.UseDiscardEchoMaterials)
+        {
+            AppendLog("자동화 시작 전 점검: 폐기 에코 우선 사용 옵션이 켜져 있습니다. 재료 목록 탐지는 강화 화면에서 실제 사용 시 확인합니다.");
+        }
+
+        if (failures.Count > 0)
+        {
+            AppendPreflightFailures(failures);
+            return false;
+        }
+
+        AppendLog("자동화 시작 전 점검 완료: 기본 탐지 항목이 정상입니다.");
+        await Task.CompletedTask;
+        return true;
+    }
+
+    private IEnumerable<string> GetPreflightRequiredRegionKeys()
+    {
+        foreach (var key in CalibrationTargets.RequiredRegionKeys)
+        {
+            if (!_config.UseDiscardEchoMaterials && key is "roi_echo_material_input" or "roi_echo_material_list")
+            {
+                continue;
+            }
+
+            yield return key;
+        }
+    }
+
+    private IEnumerable<string> GetPreflightRequiredAssetKeys()
+    {
+        foreach (var key in CalibrationTargets.RequiredAssetKeys)
+        {
+            if (!_config.UseDiscardEchoMaterials && key == "template_discard_echo.png")
+            {
+                continue;
+            }
+
+            yield return key;
+        }
+    }
+
+    private void AppendPreflightFailures(IReadOnlyList<string> failures)
+    {
+        foreach (var failure in failures)
+        {
+            AppendLog($"자동화 시작 전 점검 실패: {failure}");
+        }
+    }
+
+    private static string GetCalibrationTargetDisplayName(string key)
+    {
+        return key switch
+        {
+            "roi_list" => "에코 목록",
+            "roi_enhance_tab" => "육성 버튼",
+            "roi_staged_auto_input" => "단계별 투입 버튼",
+            "roi_echo_material_input" => "에코 재료 투입 영역",
+            "roi_echo_material_list" => "에코 재료 목록",
+            "roi_enhance_confirm" => "강화 확인 버튼",
+            "roi_enhance_complete_close" => "강화 완료 오버레이 닫기 영역",
+            "roi_current_level" => "현재 에코 레벨",
+            "roi_substat" => "부옵션 텍스트",
+            "template_plus_zero.png" => "+0 표시",
+            "template_discard_echo.png" => "폐기 에코 아이콘",
+            _ => key,
+        };
     }
 
     private void ClickRegion(InputController input, string regionKey)
