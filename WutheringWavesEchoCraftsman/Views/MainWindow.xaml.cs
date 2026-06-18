@@ -80,13 +80,16 @@ public partial class MainWindow : Window
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         RemainingCountTextBox.Text = _config.RemainingCount.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
-        EchoListScrollDirectionComboBox.SelectedValue = NormalizeEchoListScrollDirection(_config.EchoListScrollDirection);
+        EchoListScrollDirectionComboBox.SelectedValue = NormalizeScrollDirection(_config.EchoListScrollDirection);
         EchoListScrollAmountTextBox.Text = _config.EchoListScrollAmount.ToString();
+        EchoMaterialScrollDirectionComboBox.SelectedValue = NormalizeScrollDirection(_config.EchoMaterialScrollDirection);
+        EchoMaterialScrollAmountTextBox.Text = _config.EchoMaterialScrollAmount.ToString();
         StartDelayTextBox.Text = _config.StartDelaySeconds.ToString();
         ActionDelayTextBox.Text = _config.ActionDelayMs.ToString();
         CompletionDelayTextBox.Text = _config.CompletionOverlayDelayMs.ToString();
         ReturnToListDelayTextBox.Text = _config.ReturnToListDelayMs.ToString();
         EchoListScrollDelayTextBox.Text = _config.EchoListScrollDelayMs.ToString();
+        EchoMaterialScrollDelayTextBox.Text = _config.EchoMaterialScrollDelayMs.ToString();
         ExpMaterialSlotsTextBox.Text = _config.ExpMaterialSlotsToUse.ToString();
         UseDiscardEchoMaterialsCheckBox.IsChecked = _config.UseDiscardEchoMaterials;
         ExpMaterialDelayTextBox.Text = _config.ExpMaterialClickDelayMs.ToString();
@@ -102,13 +105,16 @@ public partial class MainWindow : Window
         _config.TargetLevel = _config.TargetOptimizeCount * 5;
         TargetLevelTextBox.Text = _config.TargetLevel.ToString();
         OptimizeCountTextBox.Text = _config.TargetOptimizeCount.ToString();
-        _config.EchoListScrollDirection = NormalizeEchoListScrollDirection(EchoListScrollDirectionComboBox.SelectedValue as string);
+        _config.EchoListScrollDirection = NormalizeScrollDirection(EchoListScrollDirectionComboBox.SelectedValue as string);
         _config.EchoListScrollAmount = Math.Max(120, ParseInt(EchoListScrollAmountTextBox.Text, 360));
+        _config.EchoMaterialScrollDirection = NormalizeScrollDirection(EchoMaterialScrollDirectionComboBox.SelectedValue as string);
+        _config.EchoMaterialScrollAmount = Math.Max(120, ParseInt(EchoMaterialScrollAmountTextBox.Text, 360));
         _config.StartDelaySeconds = Math.Max(0, ParseInt(StartDelayTextBox.Text, 3));
         _config.ActionDelayMs = Math.Max(100, ParseInt(ActionDelayTextBox.Text, 800));
         _config.CompletionOverlayDelayMs = Math.Max(300, ParseInt(CompletionDelayTextBox.Text, 1800));
         _config.ReturnToListDelayMs = Math.Max(300, ParseInt(ReturnToListDelayTextBox.Text, 2000));
         _config.EchoListScrollDelayMs = Math.Max(300, ParseInt(EchoListScrollDelayTextBox.Text, 800));
+        _config.EchoMaterialScrollDelayMs = Math.Max(300, ParseInt(EchoMaterialScrollDelayTextBox.Text, 800));
         _config.ExpMaterialSlotsToUse = Math.Clamp(ParseInt(ExpMaterialSlotsTextBox.Text, 1), 1, 4);
         _config.UseDiscardEchoMaterials = UseDiscardEchoMaterialsCheckBox.IsChecked == true;
         _config.ExpMaterialClickDelayMs = Math.Max(50, ParseInt(ExpMaterialDelayTextBox.Text, 150));
@@ -132,7 +138,7 @@ public partial class MainWindow : Window
         _config.TargetLevel = _config.TargetOptimizeCount * 5;
     }
 
-    private static string NormalizeEchoListScrollDirection(string? direction)
+    private static string NormalizeScrollDirection(string? direction)
     {
         return string.Equals(direction, "Up", StringComparison.OrdinalIgnoreCase) ? "Up" : "Down";
     }

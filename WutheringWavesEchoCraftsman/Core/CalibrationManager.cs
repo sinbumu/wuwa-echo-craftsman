@@ -120,6 +120,21 @@ public sealed class CalibrationManager
             config.EchoListScrollDelayMs = 800;
         }
 
+        if (string.IsNullOrWhiteSpace(config.EchoMaterialScrollDirection))
+        {
+            config.EchoMaterialScrollDirection = "Down";
+        }
+
+        if (config.EchoMaterialScrollAmount <= 0)
+        {
+            config.EchoMaterialScrollAmount = 360;
+        }
+
+        if (config.EchoMaterialScrollDelayMs <= 0)
+        {
+            config.EchoMaterialScrollDelayMs = 800;
+        }
+
         if (config.ExpMaterialSlotsToUse <= 0)
         {
             config.ExpMaterialSlotsToUse = 1;

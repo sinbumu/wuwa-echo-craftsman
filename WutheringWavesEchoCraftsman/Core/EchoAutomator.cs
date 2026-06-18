@@ -101,19 +101,49 @@ public sealed class EchoAutomator
         return false;
     }
 
-    private async Task ScrollEchoListAsync(RegionRect listRegion, int scrollAttempt, CancellationToken cancellationToken)
+    private Task ScrollEchoListAsync(RegionRect listRegion, int scrollAttempt, CancellationToken cancellationToken)
+        => ScrollRegionAsync(
+            listRegion,
+            _config.EchoListScrollDirection,
+            _config.EchoListScrollAmount,
+            EchoListScrollDelayMs,
+            $"SEARCH: +0 미발견, 목록",
+            scrollAttempt,
+            3,
+            cancellationToken);
+
+    private Task ScrollEchoMaterialListAsync(RegionRect materialRegion, int scrollAttempt, CancellationToken cancellationToken)
+        => ScrollRegionAsync(
+            materialRegion,
+            _config.EchoMaterialScrollDirection,
+            _config.EchoMaterialScrollAmount,
+            EchoMaterialScrollDelayMs,
+            "DISCARD_MATERIAL: 폐기 에코 미발견, 재료 목록",
+            scrollAttempt,
+            3,
+            cancellationToken);
+
+    private async Task ScrollRegionAsync(
+        RegionRect region,
+        string directionSetting,
+        int amountSetting,
+        int delayMs,
+        string logContext,
+        int scrollAttempt,
+        int maxScrollAttempts,
+        CancellationToken cancellationToken)
     {
-        var centerX = listRegion.X + listRegion.Width / 2;
-        var centerY = listRegion.Y + listRegion.Height / 2;
-        var direction = string.Equals(_config.EchoListScrollDirection, "Up", StringComparison.OrdinalIgnoreCase)
+        var centerX = region.X + region.Width / 2;
+        var centerY = region.Y + region.Height / 2;
+        var direction = string.Equals(directionSetting, "Up", StringComparison.OrdinalIgnoreCase)
             ? "Up"
             : "Down";
-        var scrollAmount = Math.Max(120, _config.EchoListScrollAmount);
+        var scrollAmount = Math.Max(120, amountSetting);
         var wheelDelta = direction == "Up" ? scrollAmount : -scrollAmount;
 
-        _log($"SEARCH: +0 미발견, 목록 {GetScrollDirectionText(direction)} 휠 스크롤 {scrollAttempt}/3 ({centerX},{centerY}), delta={wheelDelta}");
+        _log($"{logContext} {GetScrollDirectionText(direction)} 휠 스크롤 {scrollAttempt}/{maxScrollAttempts} ({centerX},{centerY}), delta={wheelDelta}");
         _inputController.ScrollWheel(centerX, centerY, wheelDelta);
-        await Task.Delay(EchoListScrollDelayMs, cancellationToken);
+        await Task.Delay(delayMs, cancellationToken);
     }
 
     private async Task RunStagedEnhanceLoopAsync(CancellationToken cancellationToken)
@@ -178,27 +208,40 @@ public sealed class EchoAutomator
         await ClickRegionAsync("roi_echo_material_input", cancellationToken);
 
         var materialRegion = _config.Regions["roi_echo_material_list"];
-        using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
-        var discards = FindAssets(materialCapture, "template_discard_echo.png", 0.80);
-        var discard = discards.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
-        _log($"DISCARD_MATERIAL: 폐기 에코 후보 {discards.Count}개");
 
-        if (!discard.Success)
+        for (var attempt = 0; attempt <= 3; attempt++)
         {
-            _inputController.PressKey(VirtualKeys.Escape);
-            _log("DISCARD_MATERIAL: 폐기 에코 없음, 재료 목록 닫기 후 단계별 투입으로 전환");
-            await Task.Delay(ActionDelayMs, cancellationToken);
-            return false;
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var materialCapture = _screenCapturer.CaptureRegion(materialRegion);
+            var discards = FindAssets(materialCapture, "template_discard_echo.png", 0.80);
+            var discard = discards.FirstOrDefault(new TemplateMatchResult(false, 0, 0, 0));
+            _log($"DISCARD_MATERIAL: 폐기 에코 후보 {discards.Count}개, 탐색={attempt + 1}/4");
+
+            if (discard.Success)
+            {
+                _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
+                _log($"DISCARD_MATERIAL: 폐기 에코 선택 confidence={discard.Confidence:0.000}, local=({discard.CenterX}, {discard.CenterY})");
+                await Task.Delay(ActionDelayMs, cancellationToken);
+
+                _inputController.PressKey(VirtualKeys.Escape);
+                _log("DISCARD_MATERIAL: 재료 목록 닫기 ESC 입력");
+                await Task.Delay(ActionDelayMs, cancellationToken);
+                return true;
+            }
+
+            if (attempt == 3)
+            {
+                break;
+            }
+
+            await ScrollEchoMaterialListAsync(materialRegion, attempt + 1, cancellationToken);
         }
 
-        _inputController.Click(materialRegion.X + discard.CenterX, materialRegion.Y + discard.CenterY);
-        _log($"DISCARD_MATERIAL: 폐기 에코 선택 confidence={discard.Confidence:0.000}, local=({discard.CenterX}, {discard.CenterY})");
-        await Task.Delay(ActionDelayMs, cancellationToken);
-
         _inputController.PressKey(VirtualKeys.Escape);
-        _log("DISCARD_MATERIAL: 재료 목록 닫기 ESC 입력");
+        _log("DISCARD_MATERIAL: 폐기 에코 없음 (스크롤 후에도 미발견), 재료 목록 닫기 후 단계별 투입으로 전환");
         await Task.Delay(ActionDelayMs, cancellationToken);
-        return true;
+        return false;
     }
 
     private async Task<EvaluationResult> EvaluateSubstatsAsync(CancellationToken cancellationToken)
@@ -737,6 +780,8 @@ public sealed class EchoAutomator
     private int ReturnToListDelayMs => Math.Max(300, _config.ReturnToListDelayMs);
 
     private int EchoListScrollDelayMs => Math.Max(300, _config.EchoListScrollDelayMs);
+
+    private int EchoMaterialScrollDelayMs => Math.Max(300, _config.EchoMaterialScrollDelayMs);
 
     private int ExpMaterialClickDelayMs => Math.Max(50, _config.ExpMaterialClickDelayMs);
 

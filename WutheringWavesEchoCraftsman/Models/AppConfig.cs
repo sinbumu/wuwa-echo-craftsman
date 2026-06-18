@@ -35,6 +35,12 @@ public sealed class AppConfig
 
     public int EchoListScrollDelayMs { get; set; } = 800;
 
+    public string EchoMaterialScrollDirection { get; set; } = "Down";
+
+    public int EchoMaterialScrollAmount { get; set; } = 360;
+
+    public int EchoMaterialScrollDelayMs { get; set; } = 800;
+
     public int ExpMaterialSlotsToUse { get; set; } = 1;
 
     public int ExpMaterialClickDelayMs { get; set; } = 150;
