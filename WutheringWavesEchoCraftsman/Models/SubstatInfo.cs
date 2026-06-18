@@ -27,6 +27,7 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
         var normalized = text
             .Replace("％", "%", StringComparison.Ordinal)
             .Replace("﹪", "%", StringComparison.Ordinal)
+            .Replace("°", "%", StringComparison.Ordinal)
             .Replace("퍼센트", "%", StringComparison.Ordinal)
             .Replace("percent", "%", StringComparison.OrdinalIgnoreCase);
 
@@ -36,6 +37,11 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
     public static SubstatInfo? FindByText(string text)
     {
         var normalized = NormalizeText(text);
+        if (normalized.Length == 0)
+        {
+            return null;
+        }
+
         var hasPercentMarker = normalized.Contains('%', StringComparison.Ordinal);
 
         var exactMatch = All.FirstOrDefault(stat => NormalizeText(stat.DisplayName) == normalized)
@@ -61,52 +67,214 @@ public sealed record SubstatInfo(string Key, string DisplayName, double MinValue
     {
         var lines = ocrText
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(SanitizeOcrLine)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Where(line => !IsIgnorableNoiseLine(line))
             .ToArray();
 
-        var namedStats = lines
-            .Select(line => new
+        var sequential = ParseSequential(lines);
+        var batched = ParseBatched(lines);
+        return sequential.Count >= batched.Count ? sequential : batched;
+    }
+
+    private static List<ParsedSubstat> ParseSequential(string[] lines)
+    {
+        var parsed = new List<ParsedSubstat>();
+        var orphanValues = new Queue<ParsedSubstatValue>();
+        SubstatInfo? pendingStat = null;
+        string? pendingRaw = null;
+
+        foreach (var line in lines)
+        {
+            if (IsLockedSubstatHint(line))
             {
-                RawText = line,
-                Stat = FindByText(line),
-            })
-            .Where(item => item.Stat is not null)
-            .ToArray();
+                continue;
+            }
 
-        var values = lines
-            .Select(TryParseValueLine)
+            var stat = FindByText(line);
+            var inlineValue = TryExtractValue(line);
+
+            if (stat is not null && inlineValue is not null)
+            {
+                FlushPendingStat(parsed, ref pendingStat, ref pendingRaw, orphanValues);
+                AddParsedStat(parsed, line, stat, inlineValue);
+                continue;
+            }
+
+            if (stat is not null)
+            {
+                FlushPendingStat(parsed, ref pendingStat, ref pendingRaw, orphanValues);
+                pendingStat = stat;
+                pendingRaw = line;
+                continue;
+            }
+
+            var value = TryExtractValue(line);
+            if (value is null)
+            {
+                continue;
+            }
+
+            if (pendingStat is not null)
+            {
+                var chosen = ChooseValueForStat(pendingStat, value, orphanValues);
+                AddParsedStat(parsed, pendingRaw!, pendingStat, chosen);
+                pendingStat = null;
+                pendingRaw = null;
+                continue;
+            }
+
+            orphanValues.Enqueue(value);
+        }
+
+        FlushPendingStat(parsed, ref pendingStat, ref pendingRaw, orphanValues);
+        return parsed;
+    }
+
+    private static List<ParsedSubstat> ParseBatched(string[] lines)
+    {
+        var parsed = new List<ParsedSubstat>();
+        var nameOnlyLines = new List<(string RawText, SubstatInfo Stat)>();
+
+        foreach (var line in lines)
+        {
+            if (IsLockedSubstatHint(line))
+            {
+                continue;
+            }
+
+            var stat = FindByText(line);
+            if (stat is null)
+            {
+                continue;
+            }
+
+            var value = TryExtractValue(line);
+            if (value is not null)
+            {
+                stat = ResolveStatVariant(stat, value);
+                parsed.Add(new ParsedSubstat(
+                    stat.Key,
+                    stat.DisplayName,
+                    NormalizeValueForStat(stat, value.Value),
+                    line));
+                continue;
+            }
+
+            nameOnlyLines.Add((line, stat));
+        }
+
+        var valueOnlyLines = lines
+            .Where(line => !IsLockedSubstatHint(line) && FindByText(line) is null)
+            .Select(TryExtractValue)
             .Where(value => value is not null)
             .Select(value => value!)
             .ToArray();
 
-        return namedStats
-            .Select((item, index) =>
-            {
-                var parsedValue = index < values.Length ? values[index] : (ParsedSubstatValue?)null;
-                var stat = ResolveStatVariant(item.Stat!, parsedValue);
-                return new ParsedSubstat(
-                    stat.Key,
-                    stat.DisplayName,
-                    parsedValue is null ? 0 : NormalizeValueForStat(stat, parsedValue.Value),
-                    item.RawText);
-            })
-            .ToArray();
-    }
-
-    private static ParsedSubstatValue? TryParseValueLine(string line)
-    {
-        if (FindByText(line) is not null || IsLockedSubstatHint(line))
+        for (var index = 0; index < nameOnlyLines.Count; index++)
         {
-            return null;
+            var item = nameOnlyLines[index];
+            var parsedValue = index < valueOnlyLines.Length ? valueOnlyLines[index] : (ParsedSubstatValue?)null;
+            var stat = ResolveStatVariant(item.Stat, parsedValue);
+            parsed.Add(new ParsedSubstat(
+                stat.Key,
+                stat.DisplayName,
+                parsedValue is null ? 0 : NormalizeValueForStat(stat, parsedValue.Value),
+                item.RawText));
         }
 
-        var match = Regex.Match(line, @"[-+]?\d+(?:[.,]\d+)?");
+        return parsed;
+    }
+
+    private static ParsedSubstatValue ChooseValueForStat(
+        SubstatInfo stat,
+        ParsedSubstatValue current,
+        Queue<ParsedSubstatValue> orphanValues)
+    {
+        if (orphanValues.Count == 0)
+        {
+            return current;
+        }
+
+        var orphan = orphanValues.Peek();
+        var currentResolved = ResolveStatVariant(stat, current);
+        var orphanResolved = ResolveStatVariant(stat, orphan);
+        var currentFits = IsInRange(currentResolved, NormalizeValueForStat(currentResolved, current.Value));
+        var orphanFits = IsInRange(orphanResolved, NormalizeValueForStat(orphanResolved, orphan.Value));
+
+        if (orphanFits && !currentFits)
+        {
+            orphanValues.Dequeue();
+            orphanValues.Enqueue(current);
+            return orphan;
+        }
+
+        if (orphanFits && currentFits)
+        {
+            return orphanValues.Dequeue();
+        }
+
+        return current;
+    }
+
+    private static void FlushPendingStat(
+        List<ParsedSubstat> parsed,
+        ref SubstatInfo? pendingStat,
+        ref string? pendingRaw,
+        Queue<ParsedSubstatValue> orphanValues)
+    {
+        if (pendingStat is null || pendingRaw is null)
+        {
+            return;
+        }
+
+        ParsedSubstatValue? value = orphanValues.Count > 0 ? orphanValues.Dequeue() : null;
+        AddParsedStat(parsed, pendingRaw, pendingStat, value);
+        pendingStat = null;
+        pendingRaw = null;
+    }
+
+    private static void AddParsedStat(
+        List<ParsedSubstat> parsed,
+        string rawText,
+        SubstatInfo stat,
+        ParsedSubstatValue? value)
+    {
+        stat = ResolveStatVariant(stat, value);
+        parsed.Add(new ParsedSubstat(
+            stat.Key,
+            stat.DisplayName,
+            value is null ? 0 : NormalizeValueForStat(stat, value.Value),
+            rawText));
+    }
+
+    private static string SanitizeOcrLine(string line)
+    {
+        var trimmed = line.Trim();
+        trimmed = Regex.Replace(trimmed, @"^[+＋十×Xx\s]+", string.Empty);
+        return trimmed.Trim();
+    }
+
+    private static bool IsIgnorableNoiseLine(string line)
+    {
+        var normalized = NormalizeText(line);
+        return normalized.Length == 0 || normalized is "+" or "x";
+    }
+
+    private static ParsedSubstatValue? TryExtractValue(string line)
+    {
+        var match = Regex.Match(line, @"(\d+(?:[.,]\d+)?)\s*[%％﹪°]?");
         if (!match.Success)
         {
             return null;
         }
 
-        var hasPercentMarker = NormalizeText(line).Contains('%', StringComparison.Ordinal);
-        var value = double.Parse(match.Value.Replace(',', '.'), CultureInfo.InvariantCulture);
+        var hasPercentMarker = line.Contains('%', StringComparison.Ordinal)
+            || line.Contains('％', StringComparison.Ordinal)
+            || line.Contains('﹪', StringComparison.Ordinal)
+            || line.Contains('°', StringComparison.Ordinal)
+            || NormalizeText(line).Contains('%', StringComparison.Ordinal);
+        var value = double.Parse(match.Groups[1].Value.Replace(',', '.'), CultureInfo.InvariantCulture);
         return new ParsedSubstatValue(value, hasPercentMarker);
     }
 

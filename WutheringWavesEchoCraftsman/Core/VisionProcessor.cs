@@ -1,9 +1,12 @@
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
-using System.Text.RegularExpressions;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
 using PaddleOCRSharp;
+using Windows.Graphics.Imaging;
+using Windows.Media.Ocr;
+using Windows.Storage.Streams;
 
 namespace WutheringWavesEchoCraftsman.Core;
 
@@ -15,6 +18,11 @@ public sealed class VisionProcessor
 
     private static readonly string PortableModelDirectory =
         Path.Combine(AppContext.BaseDirectory, "data", "models");
+
+    /// <summary>
+    /// 한국어 rec 모델 + korean_dict.txt 가 준비된 경우 true.
+    /// </summary>
+    public static bool IsKoreanPaddleModelConfigured => TryCreateKoreanModelConfig(out _);
 
     public TemplateMatchResult FindTemplate(Bitmap source, Bitmap template, double threshold = 0.85)
     {
@@ -70,7 +78,7 @@ public sealed class VisionProcessor
             .ToArray();
     }
 
-    public Task<string> RecognizeTextAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
+    public Task<string> RecognizeTextWithPaddleAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bitmap);
 
@@ -81,6 +89,26 @@ public sealed class VisionProcessor
             using var mat = BitmapConverter.ToMat(bitmap);
             return RecognizeTextFromMat(mat, cancellationToken);
         }, cancellationToken);
+    }
+
+    public Task<string> RecognizeTextAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
+        => RecognizeTextWithPaddleAsync(bitmap, cancellationToken);
+
+    public async Task<string> RecognizeTextWithWindowsAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+
+        using var softwareBitmap = await ToSoftwareBitmapAsync(bitmap, cancellationToken);
+        var engine = OcrEngine.TryCreateFromUserProfileLanguages()
+            ?? OcrEngine.TryCreateFromLanguage(new Windows.Globalization.Language("ko-KR"));
+
+        if (engine is null)
+        {
+            return string.Empty;
+        }
+
+        var result = await engine.RecognizeAsync(softwareBitmap).AsTask(cancellationToken);
+        return string.Join(Environment.NewLine, result.Lines.Select(line => line.Text));
     }
 
     public static void DisposeSharedEngine()
@@ -102,6 +130,22 @@ public sealed class VisionProcessor
         Cv2.Threshold(gray, threshold, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
 
         return BitmapConverter.ToBitmap(threshold);
+    }
+
+    public IReadOnlyList<Bitmap> CreateSubstatOcrCandidates(Bitmap bitmap)
+    {
+        using var sourceMat = BitmapConverter.ToMat(bitmap);
+        using var gray = ToGray(sourceMat);
+        using var upscaledColor = ResizeScale(sourceMat, 2);
+        using var upscaledGray = ResizeScale(gray, 2);
+
+        return
+        [
+            (Bitmap)bitmap.Clone(),
+            BitmapConverter.ToBitmap(upscaledColor),
+            BitmapConverter.ToBitmap(upscaledGray),
+            BitmapConverter.ToBitmap(gray),
+        ];
     }
 
     public IReadOnlyList<Bitmap> CreateSmallTextOcrCandidates(Bitmap bitmap)
@@ -166,6 +210,10 @@ public sealed class VisionProcessor
             det = true,
             rec = true,
             cls = false,
+            max_side_len = 1920,
+            det_db_thresh = 0.2f,
+            det_db_box_thresh = 0.4f,
+            rec_img_h = 48,
         };
 
         _ocrEngine = new PaddleOCREngine(config, parameter);
@@ -174,6 +222,11 @@ public sealed class VisionProcessor
 
     private static OCRModelConfig CreateModelConfig()
     {
+        if (TryCreateKoreanModelConfig(out var koreanConfig))
+        {
+            return koreanConfig;
+        }
+
         var detPath = Path.Combine(PortableModelDirectory, "det");
         var clsPath = Path.Combine(PortableModelDirectory, "cls");
         var recPath = Path.Combine(PortableModelDirectory, "rec");
@@ -181,22 +234,167 @@ public sealed class VisionProcessor
 
         if (Directory.Exists(detPath)
             && Directory.Exists(recPath)
-            && File.Exists(keysPath))
+            && File.Exists(keysPath)
+            && File.Exists(Path.Combine(recPath, "inference.pdiparams")))
         {
-            return new OCRModelConfig(detPath, clsPath, recPath, keysPath);
+            var customClsPath = Directory.Exists(clsPath) ? clsPath : detPath;
+            return new OCRModelConfig(detPath, customClsPath, recPath, keysPath);
+        }
+
+        var bundledRoot = Path.Combine(AppContext.BaseDirectory, "inference");
+        var bundledDet = Path.Combine(bundledRoot, "PP-OCRv6_small_det_infer");
+        var bundledCls = Path.Combine(bundledRoot, "PP-OCRv5_mobile_cls_infer");
+        var bundledRec = Path.Combine(bundledRoot, "PP-OCRv6_small_rec_infer");
+        var bundledKeys = Path.Combine(bundledRoot, "ppocr_keys.txt");
+
+        if (Directory.Exists(bundledDet)
+            && Directory.Exists(bundledRec)
+            && File.Exists(bundledKeys)
+            && File.Exists(Path.Combine(bundledDet, "inference.pdiparams"))
+            && File.Exists(Path.Combine(bundledRec, "inference.pdiparams")))
+        {
+            var bundledClsPath = Directory.Exists(bundledCls) ? bundledCls : bundledDet;
+            return new OCRModelConfig(bundledDet, bundledClsPath, bundledRec, bundledKeys);
         }
 
         return OCRModelConfig.Default;
     }
 
+    private static bool TryCreateKoreanModelConfig(out OCRModelConfig config)
+    {
+        config = null!;
+
+        var modelRoot = PortableModelDirectory;
+        var dictPath = ResolveKoreanDictionaryPath(modelRoot);
+        var recPath = ResolveKoreanRecModelPath(modelRoot);
+        if (dictPath is null || recPath is null)
+        {
+            return false;
+        }
+
+        var detPath = ResolveDetModelPath(modelRoot);
+        if (detPath is null)
+        {
+            return false;
+        }
+
+        var clsPath = ResolveClsModelPath(modelRoot, detPath);
+        config = new OCRModelConfig(detPath, clsPath, recPath, dictPath);
+        return true;
+    }
+
+    private static string? ResolveKoreanDictionaryPath(string modelRoot)
+    {
+        var koreanDictPath = Path.Combine(modelRoot, "korean_dict.txt");
+        if (File.Exists(koreanDictPath))
+        {
+            return koreanDictPath;
+        }
+
+        var keysPath = Path.Combine(modelRoot, "ppocr_keys.txt");
+        if (File.Exists(keysPath) && ContainsHangulDictionary(keysPath))
+        {
+            return keysPath;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsHangulDictionary(string dictPath)
+    {
+        foreach (var line in File.ReadLines(dictPath).Take(2000))
+        {
+            if (line.Any(ch => ch is >= '\uAC00' and <= '\uD7A3'))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsHangul(string? line)
+    {
+        return !string.IsNullOrEmpty(line) && line.Any(ch => ch is >= '\uAC00' and <= '\uD7A3');
+    }
+
+    private static string? ResolveKoreanRecModelPath(string modelRoot)
+    {
+        foreach (var directoryName in new[]
+        {
+            "korean_PP-OCRv5_mobile_rec_infer",
+            "korean_PP-OCRv4_rec_infer",
+            "korean_PP-OCRv3_mobile_rec_infer",
+            "rec",
+        })
+        {
+            var path = Path.Combine(modelRoot, directoryName);
+            if (IsValidInferenceModelDirectory(path))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveDetModelPath(string modelRoot)
+    {
+        foreach (var directoryName in new[]
+        {
+            "PP-OCRv5_mobile_det_infer",
+            "PP-OCRv6_small_det_infer",
+            "det",
+        })
+        {
+            var path = Path.Combine(modelRoot, directoryName);
+            if (IsValidInferenceModelDirectory(path))
+            {
+                return path;
+            }
+        }
+
+        var bundledRoot = Path.Combine(AppContext.BaseDirectory, "inference");
+        foreach (var directoryName in new[] { "PP-OCRv5_mobile_det_infer", "PP-OCRv6_small_det_infer" })
+        {
+            var path = Path.Combine(bundledRoot, directoryName);
+            if (IsValidInferenceModelDirectory(path))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    private static string ResolveClsModelPath(string modelRoot, string detPath)
+    {
+        foreach (var directoryName in new[] { "PP-OCRv5_mobile_cls_infer", "cls" })
+        {
+            var path = Path.Combine(modelRoot, directoryName);
+            if (IsValidInferenceModelDirectory(path))
+            {
+                return path;
+            }
+        }
+
+        var bundledCls = Path.Combine(AppContext.BaseDirectory, "inference", "PP-OCRv5_mobile_cls_infer");
+        if (IsValidInferenceModelDirectory(bundledCls))
+        {
+            return bundledCls;
+        }
+
+        return detPath;
+    }
+
+    private static bool IsValidInferenceModelDirectory(string path)
+    {
+        return Directory.Exists(path) && File.Exists(Path.Combine(path, "inference.pdiparams"));
+    }
+
     private static void EnsureNativeLibraryPath()
     {
         var baseDirectory = AppContext.BaseDirectory;
-        var paddleOcrDllPath = Path.Combine(baseDirectory, "PaddleOCR.dll");
-        if (File.Exists(paddleOcrDllPath))
-        {
-            EngineBase.PaddleOCRdllPath = paddleOcrDllPath;
-        }
 
         var requiredNativeLibraries = new[]
         {
@@ -215,6 +413,14 @@ public sealed class VisionProcessor
             throw new FileNotFoundException(
                 $"PaddleOCR 네이티브 실행 파일이 누락되었습니다: {string.Join(", ", missing)}. `dotnet restore` 후 다시 빌드해 주세요.",
                 Path.Combine(baseDirectory, missing[0]));
+        }
+
+        var bundledDetModel = Path.Combine(baseDirectory, "inference", "PP-OCRv6_small_det_infer", "inference.pdiparams");
+        if (!File.Exists(bundledDetModel))
+        {
+            throw new FileNotFoundException(
+                $"PaddleOCR 추론 모델이 누락되었습니다: {bundledDetModel}. `dotnet restore` 후 다시 빌드해 주세요.",
+                bundledDetModel);
         }
     }
 
@@ -250,44 +456,45 @@ public sealed class VisionProcessor
             return string.Empty;
         }
 
+        if (result.TextBlocks is { Count: > 0 })
+        {
+            var orderedBlocks = result.TextBlocks
+                .OrderBy(block => block.BoxPoints?.FirstOrDefault()?.Y ?? 0)
+                .ThenBy(block => block.BoxPoints?.FirstOrDefault()?.X ?? 0)
+                .Select(block => block.Text)
+                .Where(text => !string.IsNullOrWhiteSpace(text));
+
+            return NormalizeOcrText(string.Join(Environment.NewLine, orderedBlocks));
+        }
+
         if (!string.IsNullOrWhiteSpace(result.Text))
         {
             return NormalizeOcrText(result.Text);
         }
 
-        if (result.TextBlocks is null || result.TextBlocks.Count == 0)
-        {
-            return string.Empty;
-        }
-
-        var orderedBlocks = result.TextBlocks
-            .OrderBy(block => block.BoxPoints?.FirstOrDefault()?.Y ?? 0)
-            .ThenBy(block => block.BoxPoints?.FirstOrDefault()?.X ?? 0)
-            .Select(block => block.Text)
-            .Where(text => !string.IsNullOrWhiteSpace(text));
-
-        return NormalizeOcrText(string.Join(Environment.NewLine, orderedBlocks));
+        return string.Empty;
     }
 
     private static string NormalizeOcrText(string text)
     {
-        var normalized = text
+        return text
             .Replace("％", "%", StringComparison.Ordinal)
             .Replace("﹪", "%", StringComparison.Ordinal)
             .Replace("．", ".", StringComparison.Ordinal)
             .Replace("＋", "+", StringComparison.Ordinal);
-
-        var lines = normalized
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(NormalizeOcrLine)
-            .Where(line => !string.IsNullOrWhiteSpace(line));
-
-        return string.Join(Environment.NewLine, lines);
     }
 
-    private static string NormalizeOcrLine(string line)
+    private static Mat ResizeScale(Mat source, double scale)
     {
-        return Regex.Replace(line, @"[^\p{L}\p{N}%+\-.]+", string.Empty);
+        var resized = new Mat();
+        Cv2.Resize(
+            source,
+            resized,
+            new OpenCvSharp.Size(Math.Max(1, (int)(source.Width * scale)), Math.Max(1, (int)(source.Height * scale))),
+            0,
+            0,
+            InterpolationFlags.Cubic);
+        return resized;
     }
 
     private static Mat ToGray(Mat source)
@@ -321,6 +528,28 @@ public sealed class VisionProcessor
             InterpolationFlags.Cubic);
         Cv2.CopyMakeBorder(resized, padded, padding, padding, padding, padding, BorderTypes.Constant, borderColor);
         return padded;
+    }
+
+    private static async Task<SoftwareBitmap> ToSoftwareBitmapAsync(Bitmap bitmap, CancellationToken cancellationToken)
+    {
+        await using var memoryStream = new MemoryStream();
+        bitmap.Save(memoryStream, ImageFormat.Png);
+        var bytes = memoryStream.ToArray();
+
+        using var randomAccessStream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(randomAccessStream))
+        {
+            writer.WriteBytes(bytes);
+            await writer.StoreAsync().AsTask(cancellationToken);
+            await writer.FlushAsync().AsTask(cancellationToken);
+            writer.DetachStream();
+        }
+
+        randomAccessStream.Seek(0);
+        var decoder = await BitmapDecoder.CreateAsync(randomAccessStream).AsTask(cancellationToken);
+        using var decoded = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied).AsTask(cancellationToken);
+
+        return SoftwareBitmap.Convert(decoded, BitmapPixelFormat.Gray8);
     }
 }
 

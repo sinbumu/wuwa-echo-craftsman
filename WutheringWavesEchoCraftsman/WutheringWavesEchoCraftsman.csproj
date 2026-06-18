@@ -19,6 +19,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="data\models\**\*" Condition="Exists('data\models')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\asset\app_icon.ico" Link="asset\app_icon.ico" />
     <Resource Include="..\asset\app_icon.png" Link="asset\app_icon.png" />
     <Resource Include="..\asset\splash_image.png" Link="asset\splash_image.png" />

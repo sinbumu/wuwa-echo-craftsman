@@ -205,8 +205,7 @@ public sealed class EchoAutomator
     {
         var substatRegion = _config.Regions["roi_substat"];
         using var capture = _screenCapturer.CaptureRegion(substatRegion);
-        using var processed = _visionProcessor.PreprocessForOcr(capture);
-        var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
+        var text = await RecognizeSubstatTextAsync(capture, cancellationToken);
         var parsed = SubstatInfo.ParseLines(text);
         _updateOverlaySubstats?.Invoke(parsed);
 
@@ -220,6 +219,72 @@ public sealed class EchoAutomator
 
         _log($"EVALUATE: 필수 {requiredRules.Length}개 충족={requiredSatisfied}, 유효 {validCount}/{_config.RequiredValidSubstatCount}, 조건만족={isSatisfied}");
         return new EvaluationResult(text, parsed.Count, validCount, requiredRules.Length, requiredMatchedCount, requiredSatisfied, isSatisfied, isSatisfied ? "LOCK" : "DISCARD");
+    }
+
+    private async Task<string> RecognizeSubstatTextAsync(Bitmap capture, CancellationToken cancellationToken)
+    {
+        using var candidates = new DisposableBitmapList(_visionProcessor.CreateSubstatOcrCandidates(capture));
+        var attempts = new List<string>();
+        var bestText = string.Empty;
+        var bestParsedCount = -1;
+        var bestLabel = "none";
+
+        var engines = BuildSubstatOcrEngines();
+        foreach (var (engineLabel, recognize) in engines)
+        {
+            for (var index = 0; index < candidates.Items.Count; index++)
+            {
+                var text = await recognize(candidates.Items[index], cancellationToken);
+                var parsedCount = SubstatInfo.ParseLines(text).Count;
+                var label = $"{engineLabel}#{index + 1}";
+                attempts.Add($"{label}={parsedCount} '{SummarizeOcrText(text)}'");
+
+                if (parsedCount > bestParsedCount)
+                {
+                    bestParsedCount = parsedCount;
+                    bestText = text;
+                    bestLabel = label;
+                }
+            }
+
+            if (bestParsedCount > 0 && engines.Count == 1)
+            {
+                break;
+            }
+        }
+
+        _log($"EVALUATE: 부옵 OCR ({DescribeActiveOcrProfile()}), 후보 {candidates.Items.Count}개×{engines.Count}엔진, 최적={bestLabel} ({bestParsedCount}개 인식), 시도={string.Join(", ", attempts)}");
+        return bestText;
+    }
+
+    private IReadOnlyList<(string Label, Func<Bitmap, CancellationToken, Task<string>> Recognize)> BuildSubstatOcrEngines()
+    {
+        if (VisionProcessor.IsKoreanPaddleModelConfigured)
+        {
+            return
+            [
+                ("paddle", (bitmap, ct) => _visionProcessor.RecognizeTextWithPaddleAsync(bitmap, ct)),
+            ];
+        }
+
+        return
+        [
+            ("win", (bitmap, ct) => _visionProcessor.RecognizeTextWithWindowsAsync(bitmap, ct)),
+            ("paddle", (bitmap, ct) => _visionProcessor.RecognizeTextWithPaddleAsync(bitmap, ct)),
+        ];
+    }
+
+    private static string DescribeActiveOcrProfile()
+    {
+        return VisionProcessor.IsKoreanPaddleModelConfigured
+            ? "Paddle 한국어 모델"
+            : "Windows OCR + Paddle fallback";
+    }
+
+    private static string SummarizeOcrText(string text)
+    {
+        var compact = text.ReplaceLineEndings(" | ");
+        return compact.Length <= 120 ? compact : compact[..120] + "...";
     }
 
     private async Task ApplyDecisionAsync(EvaluationResult evaluation, CancellationToken cancellationToken)
@@ -425,7 +490,7 @@ public sealed class EchoAutomator
         if (!substatRegion.IsEmpty)
         {
             using var before = _screenCapturer.CaptureRegion(substatRegion);
-            previousText = await _visionProcessor.RecognizeTextAsync(before, cancellationToken);
+            previousText = await RecognizeSubstatTextAsync(before, cancellationToken);
         }
 
         await SetOptimizeCountAsync(cancellationToken);
@@ -438,7 +503,7 @@ public sealed class EchoAutomator
 
             await Task.Delay(ActionDelayMs, cancellationToken);
             using var after = _screenCapturer.CaptureRegion(substatRegion);
-            var currentText = await _visionProcessor.RecognizeTextAsync(after, cancellationToken);
+            var currentText = await RecognizeSubstatTextAsync(after, cancellationToken);
             if (!string.Equals(previousText, currentText, StringComparison.Ordinal))
             {
                 _log("OPTIMIZE: 부옵션 OCR 결과 갱신 감지");
@@ -451,8 +516,7 @@ public sealed class EchoAutomator
     {
         var substatRegion = _config.Regions["roi_substat"];
         using var capture = _screenCapturer.CaptureRegion(substatRegion);
-        using var processed = _visionProcessor.PreprocessForOcr(capture);
-        var text = await _visionProcessor.RecognizeTextAsync(processed, cancellationToken);
+        var text = await RecognizeSubstatTextAsync(capture, cancellationToken);
         var parsed = SubstatInfo.ParseLines(text);
 
         var enabledRules = _config.SubstatRules.Where(rule => rule.Enabled).ToArray();

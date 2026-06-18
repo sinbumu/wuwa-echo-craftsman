@@ -390,9 +390,30 @@ public partial class MainWindow : Window
                 ? _screenCapturer.CaptureRegion(region)
                 : _screenCapturer.CaptureVirtualScreen();
 
-            using var processed = _visionProcessor.PreprocessForOcr(capture);
-            var text = await _visionProcessor.RecognizeTextAsync(processed);
-            AppendLog($"OCR 결과:{Environment.NewLine}{text}");
+            var candidateBitmaps = _visionProcessor.CreateSubstatOcrCandidates(capture);
+            try
+            {
+                var logs = new List<string>();
+                for (var index = 0; index < candidateBitmaps.Count; index++)
+                {
+                    var winText = await _visionProcessor.RecognizeTextWithWindowsAsync(candidateBitmaps[index]);
+                    var winCount = SubstatInfo.ParseLines(winText).Count;
+                    logs.Add($"Windows 후보 #{index + 1} ({winCount}개):{Environment.NewLine}{winText}");
+
+                    var paddleText = await _visionProcessor.RecognizeTextWithPaddleAsync(candidateBitmaps[index]);
+                    var paddleCount = SubstatInfo.ParseLines(paddleText).Count;
+                    logs.Add($"Paddle 후보 #{index + 1} ({paddleCount}개):{Environment.NewLine}{paddleText}");
+                }
+
+                AppendLog(string.Join($"{Environment.NewLine}{Environment.NewLine}", logs));
+            }
+            finally
+            {
+                foreach (var candidate in candidateBitmaps)
+                {
+                    candidate.Dispose();
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -426,8 +447,24 @@ public partial class MainWindow : Window
             }
 
             using var crop = screenshot.Clone(result.Region.ToRectangle(), screenshot.PixelFormat);
-            var text = await _visionProcessor.RecognizeTextAsync(crop);
-            AppendLog($"임의 OCR 원문 ({result.Region.X},{result.Region.Y},{result.Region.Width},{result.Region.Height}):{Environment.NewLine}{text}");
+            var paddleLabel = VisionProcessor.IsKoreanPaddleModelConfigured ? "Paddle / 한국어 모델" : "Paddle";
+            var paddleText = await _visionProcessor.RecognizeTextWithPaddleAsync(crop);
+            var parsedCount = SubstatInfo.ParseLines(paddleText).Count;
+
+            if (VisionProcessor.IsKoreanPaddleModelConfigured)
+            {
+                AppendLog(
+                    $"임의 OCR ({result.Region.X},{result.Region.Y},{result.Region.Width},{result.Region.Height}){Environment.NewLine}" +
+                    $"[{paddleLabel}] ({parsedCount}개 부옵 파싱){Environment.NewLine}{paddleText}");
+            }
+            else
+            {
+                var winText = await _visionProcessor.RecognizeTextWithWindowsAsync(crop);
+                AppendLog(
+                    $"임의 OCR ({result.Region.X},{result.Region.Y},{result.Region.Width},{result.Region.Height}){Environment.NewLine}" +
+                    $"[Windows / ko-KR]{Environment.NewLine}{winText}{Environment.NewLine}{Environment.NewLine}" +
+                    $"[{paddleLabel}]{Environment.NewLine}{paddleText}");
+            }
         }
         catch (Exception ex)
         {
