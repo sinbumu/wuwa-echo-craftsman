@@ -1,16 +1,21 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
+using System.Text.RegularExpressions;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
-using Windows.Graphics.Imaging;
-using Windows.Media.Ocr;
-using Windows.Storage.Streams;
+using PaddleOCRSharp;
 
 namespace WutheringWavesEchoCraftsman.Core;
 
 public sealed class VisionProcessor
 {
+    private static readonly object EngineLock = new();
+    private static PaddleOCREngine? _ocrEngine;
+    private static bool _engineDisposed;
+
+    private static readonly string PortableModelDirectory =
+        Path.Combine(AppContext.BaseDirectory, "data", "models");
+
     public TemplateMatchResult FindTemplate(Bitmap source, Bitmap template, double threshold = 0.85)
     {
         using var sourceMat = BitmapConverter.ToMat(source);
@@ -65,19 +70,27 @@ public sealed class VisionProcessor
             .ToArray();
     }
 
-    public async Task<string> RecognizeTextAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
+    public Task<string> RecognizeTextAsync(Bitmap bitmap, CancellationToken cancellationToken = default)
     {
-        using var softwareBitmap = await ToSoftwareBitmapAsync(bitmap, cancellationToken);
-        var engine = OcrEngine.TryCreateFromUserProfileLanguages()
-            ?? OcrEngine.TryCreateFromLanguage(new Windows.Globalization.Language("ko-KR"));
+        ArgumentNullException.ThrowIfNull(bitmap);
 
-        if (engine is null)
+        return Task.Run(() =>
         {
-            return string.Empty;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var result = await engine.RecognizeAsync(softwareBitmap).AsTask(cancellationToken);
-        return string.Join(Environment.NewLine, result.Lines.Select(line => line.Text));
+            using var mat = BitmapConverter.ToMat(bitmap);
+            return RecognizeTextFromMat(mat, cancellationToken);
+        }, cancellationToken);
+    }
+
+    public static void DisposeSharedEngine()
+    {
+        lock (EngineLock)
+        {
+            _ocrEngine?.Dispose();
+            _ocrEngine = null;
+            _engineDisposed = true;
+        }
     }
 
     public Bitmap PreprocessForOcr(Bitmap bitmap)
@@ -113,6 +126,170 @@ public sealed class VisionProcessor
         ];
     }
 
+    private static string RecognizeTextFromMat(Mat mat, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var encodedMat = EnsureThreeChannelMat(mat);
+        var imageBytes = encodedMat.ToBytes(".png");
+
+        OCRResult result;
+        lock (EngineLock)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var engine = GetOrCreateEngine();
+            result = engine.DetectText(imageBytes);
+        }
+
+        return FormatOcrResult(result);
+    }
+
+    private static PaddleOCREngine GetOrCreateEngine()
+    {
+        if (_engineDisposed)
+        {
+            throw new ObjectDisposedException(nameof(VisionProcessor), "PaddleOCR 엔진이 이미 해제되었습니다.");
+        }
+
+        if (_ocrEngine is not null)
+        {
+            return _ocrEngine;
+        }
+
+        EnsureNativeLibraryPath();
+
+        var config = CreateModelConfig();
+        var parameter = new OCRParameter
+        {
+            cpu_math_library_num_threads = Math.Clamp(Environment.ProcessorCount, 1, 8),
+            enable_mkldnn = true,
+            det = true,
+            rec = true,
+            cls = false,
+        };
+
+        _ocrEngine = new PaddleOCREngine(config, parameter);
+        return _ocrEngine;
+    }
+
+    private static OCRModelConfig CreateModelConfig()
+    {
+        var detPath = Path.Combine(PortableModelDirectory, "det");
+        var clsPath = Path.Combine(PortableModelDirectory, "cls");
+        var recPath = Path.Combine(PortableModelDirectory, "rec");
+        var keysPath = Path.Combine(PortableModelDirectory, "ppocr_keys.txt");
+
+        if (Directory.Exists(detPath)
+            && Directory.Exists(recPath)
+            && File.Exists(keysPath))
+        {
+            return new OCRModelConfig(detPath, clsPath, recPath, keysPath);
+        }
+
+        return OCRModelConfig.Default;
+    }
+
+    private static void EnsureNativeLibraryPath()
+    {
+        var baseDirectory = AppContext.BaseDirectory;
+        var paddleOcrDllPath = Path.Combine(baseDirectory, "PaddleOCR.dll");
+        if (File.Exists(paddleOcrDllPath))
+        {
+            EngineBase.PaddleOCRdllPath = paddleOcrDllPath;
+        }
+
+        var requiredNativeLibraries = new[]
+        {
+            "PaddleOCR.dll",
+            "paddle_inference.dll",
+            "opencv_world470.dll",
+            "mkldnn.dll",
+        };
+
+        var missing = requiredNativeLibraries
+            .Where(name => !File.Exists(Path.Combine(baseDirectory, name)))
+            .ToArray();
+
+        if (missing.Length > 0)
+        {
+            throw new FileNotFoundException(
+                $"PaddleOCR 네이티브 실행 파일이 누락되었습니다: {string.Join(", ", missing)}. `dotnet restore` 후 다시 빌드해 주세요.",
+                Path.Combine(baseDirectory, missing[0]));
+        }
+    }
+
+    private static Mat EnsureThreeChannelMat(Mat source)
+    {
+        return source.Channels() switch
+        {
+            1 => ConvertGrayToBgr(source),
+            3 => source.Clone(),
+            4 => ConvertBgraToBgr(source),
+            _ => source.Clone(),
+        };
+    }
+
+    private static Mat ConvertGrayToBgr(Mat source)
+    {
+        var bgr = new Mat();
+        Cv2.CvtColor(source, bgr, ColorConversionCodes.GRAY2BGR);
+        return bgr;
+    }
+
+    private static Mat ConvertBgraToBgr(Mat source)
+    {
+        var bgr = new Mat();
+        Cv2.CvtColor(source, bgr, ColorConversionCodes.BGRA2BGR);
+        return bgr;
+    }
+
+    private static string FormatOcrResult(OCRResult? result)
+    {
+        if (result is null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Text))
+        {
+            return NormalizeOcrText(result.Text);
+        }
+
+        if (result.TextBlocks is null || result.TextBlocks.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var orderedBlocks = result.TextBlocks
+            .OrderBy(block => block.BoxPoints?.FirstOrDefault()?.Y ?? 0)
+            .ThenBy(block => block.BoxPoints?.FirstOrDefault()?.X ?? 0)
+            .Select(block => block.Text)
+            .Where(text => !string.IsNullOrWhiteSpace(text));
+
+        return NormalizeOcrText(string.Join(Environment.NewLine, orderedBlocks));
+    }
+
+    private static string NormalizeOcrText(string text)
+    {
+        var normalized = text
+            .Replace("％", "%", StringComparison.Ordinal)
+            .Replace("﹪", "%", StringComparison.Ordinal)
+            .Replace("．", ".", StringComparison.Ordinal)
+            .Replace("＋", "+", StringComparison.Ordinal);
+
+        var lines = normalized
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeOcrLine)
+            .Where(line => !string.IsNullOrWhiteSpace(line));
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string NormalizeOcrLine(string line)
+    {
+        return Regex.Replace(line, @"[^\p{L}\p{N}%+\-.]+", string.Empty);
+    }
+
     private static Mat ToGray(Mat source)
     {
         var gray = new Mat();
@@ -133,7 +310,7 @@ public sealed class VisionProcessor
 
     private static Mat ResizeAndPad(Mat source, int scale, int padding, Scalar borderColor)
     {
-        var resized = new Mat();
+        using var resized = new Mat();
         var padded = new Mat();
         Cv2.Resize(
             source,
@@ -143,30 +320,7 @@ public sealed class VisionProcessor
             0,
             InterpolationFlags.Cubic);
         Cv2.CopyMakeBorder(resized, padded, padding, padding, padding, padding, BorderTypes.Constant, borderColor);
-        resized.Dispose();
         return padded;
-    }
-
-    private static async Task<SoftwareBitmap> ToSoftwareBitmapAsync(Bitmap bitmap, CancellationToken cancellationToken)
-    {
-        await using var memoryStream = new MemoryStream();
-        bitmap.Save(memoryStream, ImageFormat.Png);
-        var bytes = memoryStream.ToArray();
-
-        using var randomAccessStream = new InMemoryRandomAccessStream();
-        using (var writer = new DataWriter(randomAccessStream))
-        {
-            writer.WriteBytes(bytes);
-            await writer.StoreAsync().AsTask(cancellationToken);
-            await writer.FlushAsync().AsTask(cancellationToken);
-            writer.DetachStream();
-        }
-
-        randomAccessStream.Seek(0);
-        var decoder = await BitmapDecoder.CreateAsync(randomAccessStream).AsTask(cancellationToken);
-        using var decoded = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied).AsTask(cancellationToken);
-
-        return SoftwareBitmap.Convert(decoded, BitmapPixelFormat.Gray8);
     }
 }
 

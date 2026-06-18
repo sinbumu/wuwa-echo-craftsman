@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows;
+using WutheringWavesEchoCraftsman.Core;
 using WutheringWavesEchoCraftsman.Views;
 using Forms = System.Windows.Forms;
 
@@ -44,6 +45,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        VisionProcessor.DisposeSharedEngine();
         _notifyIcon?.Dispose();
         _trayIcon?.Dispose();
         base.OnExit(e);
